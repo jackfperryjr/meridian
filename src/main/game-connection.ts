@@ -7,7 +7,7 @@ export class GameConnection extends EventEmitter {
 
   /**
    * Connect directly to the game server using the SGE launch key.
-   * Handshake: KEY\n then /FE:STORM\n
+   * Sends KEY\n then /FE:STORM\n immediately on connect.
    */
   connectDirect(host: string, port: number, key: string): void {
     if (this.socket) this.disconnect()
@@ -27,9 +27,10 @@ export class GameConnection extends EventEmitter {
   }
 
   /**
-   * Connect to Lich's local proxy port with automatic retry on ECONNREFUSED.
-   * Lich briefly binds the port during startup before it's actually ready,
-   * so we retry every 500ms for up to 30 seconds.
+   * Connect to Lich's proxy port.
+   * Lich handles the game server connection — we just receive the stream.
+   * No handshake needed; Lich starts streaming immediately on connect.
+   * Retries every 500ms on ECONNREFUSED (Lich may not be ready yet).
    */
   connect(host: string, port: number): void {
     if (this.socket) this.disconnect()
@@ -38,7 +39,7 @@ export class GameConnection extends EventEmitter {
   }
 
   private _tryConnect(host: string, port: number, attempts: number): void {
-    if (this.socket) return  // already connected by a previous attempt
+    if (this.socket) return
 
     const s = new Socket()
     s.setEncoding('latin1')
@@ -46,7 +47,7 @@ export class GameConnection extends EventEmitter {
     s.on('connect', () => {
       this.socket = s
       this.emit('log', `Connected to Lich proxy on port ${port}`)
-      s.write('/FE:STORMFRONT\n', 'latin1')
+      // No handshake — Lich streams directly after TCP connect
       this.emit('connected')
     })
 
@@ -55,8 +56,7 @@ export class GameConnection extends EventEmitter {
 
     s.on('error', (err) => {
       s.destroy()
-      if (err.message.includes('ECONNREFUSED') && attempts < 60) {
-        // Lich not ready yet — retry after 500ms
+      if (err.message.includes('ECONNREFUSED') && attempts < 240) {
         setTimeout(() => this._tryConnect(host, port, attempts + 1), 500)
       } else {
         this.emit('error', err.message)

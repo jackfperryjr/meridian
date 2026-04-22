@@ -1,15 +1,15 @@
 import { ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import { existsSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { createConnection, Socket } from 'net'
 
 export type LichStatus = 'stopped' | 'starting' | 'ready' | 'error'
 
 export class LichManager extends EventEmitter {
-  private process:    ChildProcess | null = null
-  private status:     LichStatus = 'stopped'
-  private pollTimer:  ReturnType<typeof setInterval> | null = null
+  private process:   ChildProcess | null = null
+  private status:    LichStatus = 'stopped'
+  private pollTimer: ReturnType<typeof setInterval> | null = null
 
   getLichPath(override?: string): string {
     if (override && existsSync(override)) return override
@@ -36,18 +36,11 @@ export class LichManager extends EventEmitter {
   }
 
   /**
-   * Launch Lich in --login mode where it connects to the game server itself
-   * and opens a local port for us to connect to as a frontend.
-   *
-   * We detect readiness by watching stdout for "Waiting for the client to connect"
-   * instead of polling the port — polling would steal the connection slot.
+   * Spawn Lich and immediately start gameConn retrying its proxy port.
+   * Lich opens port 11024 within ~2-3s; the retry loop catches it.
+   * No polling here — the caller (index.ts) drives the connection.
    */
-  launchDetachable(
-    characterName: string,
-    lichPathOverride?: string,
-    port = 11024
-  ): { ok: boolean; error?: string } {
-    if (this.status === 'starting' || this.status === 'ready') return { ok: true }
+  spawnOnly(characterName: string, lichPathOverride?: string): { ok: boolean; error?: string } {
     if (this.process) this.stop()
 
     const lichPath = this.getLichPath(lichPathOverride)
@@ -57,35 +50,34 @@ export class LichManager extends EventEmitter {
     }
 
     const rubyPath = this.getRubyPath()
-    const lichDir = lichPath.replace(/[/\\][^/\\]+$/, '')
+    const lichDir  = dirname(lichPath)
 
     const args = [
       lichPath,
       `--home=${lichDir}`,
       `--login=${characterName}`,
-      `--detachable-client=${port}`,
-      '--without-frontend',
       '--dragonrealms',
     ]
 
-    this.emit('log', `Launching Lich (detachable): ${rubyPath} ${args.join(' ')}`)
-    this.emit('log', `Lich home: ${lichDir}`)
-    this.emit('log', `Expects entry.yaml at: ${lichDir}\\data\\entry.yaml`)
+    this.emit('log', `Launching Lich: ${rubyPath} ${args.join(' ')}`)
     this.setStatus('starting')
+    this._spawn(rubyPath, args)
 
-    // Watch stdout for the "Waiting for the client" line to signal readiness.
-    // Do NOT poll the port — that would consume Lich's one connection slot.
-    this._spawnWatchStdout(rubyPath, args, port, /Waiting for the client|Listening on port|client to connect/i)
-
-    // No timeout — Lich may need time to download map files on first run.
-    // We wait indefinitely for the stdout signal.
+    // Signal ready after 5s so lichConn can connect to port 4901.
+    // The actual game connection (port 11024) is handled by gameConn's retry loop.
+    setTimeout(() => {
+      if (this.status === 'starting') {
+        this.setStatus('ready')
+        this.emit('ready', 4901)
+      }
+    }, 5000)
 
     return { ok: true }
   }
 
   /**
-   * Launch Lich in --detachable-client mode for script execution only.
-   * In this mode Lich doesn't broker the game connection, so polling is safe.
+   * Launch Lich in detachable-client mode for script execution only.
+   * Uses port polling since this mode doesn't broker the game connection.
    */
   launchForScripts(
     characterName: string,
@@ -102,12 +94,11 @@ export class LichManager extends EventEmitter {
     }
 
     const rubyPath = this.getRubyPath()
-    const lichDir = lichPath.replace(/[/\\][^/\\]+$/, '')
+    const lichDir  = dirname(lichPath)
 
     const args = [
       lichPath,
       `--home=${lichDir}`,
-      `--login=${characterName}`,
       `--detachable-client=${port}`,
       '--without-frontend',
       '--dragonrealms',
@@ -129,59 +120,6 @@ export class LichManager extends EventEmitter {
 
   getStatus(): LichStatus { return this.status }
 
-  // ── Private helpers ─────────────────────────────────────────────────────────
-
-  private _spawnWatchStdout(
-    rubyPath: string,
-    args: string[],
-    port: number,
-    readyPattern: RegExp
-  ): void {
-    this.process = spawn(rubyPath, args, { stdio: ['pipe', 'pipe', 'pipe'] })
-    this.process.stdin?.end()
-
-    const checkReady = (text: string) => {
-      if (readyPattern.test(text) && this.status === 'starting') {
-        this.clearPoll()
-        this.setStatus('ready')
-        this.emit('ready', port)
-      }
-    }
-
-    this.process.stdout?.on('data', (d: Buffer) => {
-      const text = d.toString()
-      text.split('\n').filter(Boolean).forEach(l => this.emit('log', l))
-      checkReady(text)
-    })
-
-    this.process.stderr?.on('data', (d: Buffer) => {
-      const text = d.toString()
-      text.split('\n').filter(Boolean).forEach(l => {
-        this.emit('log', `[stderr] ${l}`)
-        // Check stderr for ready signal too (Lich may write there on Windows)
-        checkReady(l)
-        if (/error|failed|invalid|no such|cannot/i.test(l) && this.status !== 'ready') {
-          this.setStatus('error')
-          this.emit('error', l.trim())
-        }
-      })
-    })
-
-    this.process.on('exit', (code, signal) => {
-      this.clearPoll()
-      if (this.status === 'ready') {
-        this.setStatus('stopped')
-      } else {
-        const reason = signal ? `terminated by signal ${signal}`
-          : code !== null ? `exited with code ${code}` : 'terminated unexpectedly'
-        this.emit('log', `[lich] Process ${reason}`)
-        this.setStatus('error')
-        this.emit('error', `Lich ${reason}. Check the log above for details.`)
-      }
-      this.process = null
-    })
-  }
-
   private _spawn(rubyPath: string, args: string[]): void {
     this.process = spawn(rubyPath, args, { stdio: ['pipe', 'pipe', 'pipe'] })
     this.process.stdin?.end()
@@ -192,7 +130,7 @@ export class LichManager extends EventEmitter {
     this.process.stderr?.on('data', (d: Buffer) => {
       d.toString().split('\n').filter(Boolean).forEach(l => {
         this.emit('log', `[stderr] ${l}`)
-        if (/error|failed|invalid|no such|cannot/i.test(l)) {
+        if (/error|failed|invalid|no such|cannot/i.test(l) && this.status !== 'ready') {
           this.setStatus('error')
           this.emit('error', l.trim())
         }
@@ -203,7 +141,8 @@ export class LichManager extends EventEmitter {
       if (this.status === 'ready') {
         this.setStatus('stopped')
       } else {
-        const reason = signal ? `terminated by signal ${signal}`
+        const reason = signal
+          ? `terminated by signal ${signal}`
           : code !== null ? `exited with code ${code}` : 'terminated unexpectedly'
         this.emit('log', `[lich] Process ${reason}`)
         this.setStatus('error')
@@ -213,15 +152,18 @@ export class LichManager extends EventEmitter {
     })
   }
 
-  /** Poll port for script-mode Lich (safe because it uses --detachable-client) */
   private _pollPort(port: number): void {
     this.clearPoll()
     let attempts = 0
     this.pollTimer = setInterval(() => {
-      if (++attempts > 90) {
+      attempts++
+      if (attempts % 30 === 0) {
+        this.emit('log', `[lich] Still waiting for Lich to start… (${attempts}s elapsed)`)
+      }
+      if (attempts > 300) {
         this.clearPoll()
         this.setStatus('error')
-        this.emit('error', 'Timed out waiting for Lich scripting port (90s).')
+        this.emit('error', 'Timed out waiting for Lich scripting port (5 min).')
         return
       }
       const s = createConnection({ port, host: '127.0.0.1' })
@@ -241,15 +183,11 @@ export class LichManager extends EventEmitter {
   }
 
   private clearPoll(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer as ReturnType<typeof setInterval>)
-      clearTimeout(this.pollTimer as unknown as ReturnType<typeof setTimeout>)
-      this.pollTimer = null
-    }
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null }
   }
 }
 
-// ── LichConnection ────────────────────────────────────────────────────────────
+// ── LichConnection ─────────────────────────────────────────────────────────────
 export class LichConnection extends EventEmitter {
   private socket: Socket | null = null
 

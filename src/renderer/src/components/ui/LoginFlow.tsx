@@ -180,7 +180,7 @@ function ConnectingScreen({ characterName, logLines, error, onBack }: {
       {error ? 'Connection failed' : `Entering as ${characterName}…`}
     </div>
     {!error && <div className="login-connecting-dots"><span /><span /><span /></div>}
-    {!error && <p className="login-hint">Connecting… Lich may take 1-2 minutes on first run while it downloads map data.</p>}
+    {!error && <p className="login-hint">Connecting to DragonRealms…</p>}
     {error && <div className="login-error">{error}</div>}
     {logLines.length > 0 && (
       <div className="login-log">{logLines.map((l, i) => <div key={i}>{l}</div>)}</div>
