@@ -61,7 +61,7 @@ type LichStatus = 'stopped' | 'starting' | 'ready' | 'error'
 
 export function StatusBar({
   status, onDisconnect, onStartLich, lichStatus, lichLog,
-  showLichLog, onToggleLichLog, onSettings
+  showLichLog, onToggleLichLog, onSettings, onHighlights
 }: {
   status:          ConnectionStatus
   onDisconnect:    () => void
@@ -71,6 +71,7 @@ export function StatusBar({
   showLichLog:     boolean
   onToggleLichLog: () => void
   onSettings:      () => void
+  onHighlights:    () => void
 }) {
   const lichDot: Record<LichStatus, string>   = { stopped: '○', starting: '◌', ready: '●', error: '✕' }
   const lichColor: Record<LichStatus, string> = {
@@ -117,6 +118,7 @@ export function StatusBar({
       {status === 'connected' && (
         <button className="btn-connect" onClick={onDisconnect}>Disconnect</button>
       )}
+      <button className="btn-settings" onClick={onHighlights}>✦ Highlights</button>
       <button className="btn-settings" onClick={onSettings}>⚙ Settings</button>
     </div>
   )

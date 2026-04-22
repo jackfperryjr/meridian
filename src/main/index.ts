@@ -107,7 +107,7 @@ function setupIpcHandlers(): void {
       // Then connect to Lich's port 4901 and send the key — Lich forwards it to game
       lichLog('[sge] Launching Lich (frostbite mode) for ' + characterName + '...')
       lichManager.spawnOnly(key.host, key.port, lichPath)
-      lichLog('[sge] Connecting to Lich on port 11024 (retrying until ready)...')
+      lichLog('[sge] Connecting to Lich on port 11024...')
       gameConn.connectWithKey('127.0.0.1', 11024, key.key)
     } else {
       lichLog('[sge] Connecting directly to ' + key.host + ':' + key.port)
@@ -139,8 +139,21 @@ function setupIpcHandlers(): void {
     gameConn.send(d)
   })
 
+  let lichReadyDetected = false
   gameConn.on('log',          (l: string) => lichLog('[game] ' + l))
-  gameConn.on('data',         (r: string) => mainWindow?.webContents.send('game:data', r))
+  gameConn.on('data',         (r: string) => {
+    mainWindow?.webContents.send('game:data', r)
+    if (!lichReadyDetected) {
+      // <app char="Name"> appears in the game stream once Lich has connected
+      // to the game server and parsed the character name from the initial XML.
+      // This is the reliable signal that XMLData.name is set and scripts can run.
+      if (/<app[^>]+char=/.test(r)) {
+        lichReadyDetected = true
+        lichLog('[lich] Character data received -- Lich ready')
+        mainWindow?.webContents.send('lich:status', 'ready')
+      }
+    }
+  })
   gameConn.on('connected',    ()          => { lichLog('[game] Connected'); mainWindow?.webContents.send('game:connected') })
   gameConn.on('disconnected', ()          => mainWindow?.webContents.send('game:disconnected'))
   gameConn.on('error',        (e: string) => { lichLog('[game] Error: ' + e); mainWindow?.webContents.send('game:error', e) })

@@ -41,17 +41,12 @@ export class GameConnection extends EventEmitter {
     s.setEncoding('latin1')
     s.on('connect', () => {
       this.socket = s
-      this.emit('log', 'Connected to Lich on port ' + port + ', sending key...')
+      this.emit('log', 'Connected to Lich on port ' + port + ', sending key + FE token...')
       s.write(key + '\n', 'latin1')
+      s.write('/FE:STORMFRONT\n', 'latin1')
       this.emit('connected')
     })
-    s.on('data',  (c: string) => {
-      if (this.buffer.length === 0) {
-        // Log first chunk to see what Lich sends back
-        this.emit('log', 'First data from Lich (' + c.length + ' bytes): ' + JSON.stringify(c.slice(0, 80)))
-      }
-      this.buffer += c; this.flush()
-    })
+    s.on('data',  (c: string) => { this.buffer += c; this.flush() })
     s.on('close', ()          => { this.emit('disconnected'); this.socket = null })
     s.on('error', (err) => {
       s.destroy()

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface LoginFlowProps { onEnterGame: () => void }
 
@@ -17,18 +17,18 @@ interface SavedAccount  { name: string; lastCharacter?: string }
 // ─── Shell ────────────────────────────────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="login-shell">
-      <div className="login-brand">
-        <div className="login-brand-title">DragonRealms</div>
-        <div className="login-brand-sub">Client</div>
+    <div className="login-screen">
+      <div className="login-card">
+        <div className="login-logo">Meridian</div>
+        <div className="login-logo-sub">DragonRealms Client</div>
+        {children}
       </div>
-      <div className="login-card">{children}</div>
     </div>
   )
 }
 
 function Back({ onClick }: { onClick: () => void }) {
-  return <button className="login-back-btn" onClick={onClick}>← Back</button>
+  return <button className="login-back" onClick={onClick}>← Back</button>
 }
 
 // ─── Screen 1: Saved accounts ─────────────────────────────────────────────────
@@ -40,9 +40,9 @@ function AccountListScreen({ accounts, onSelect, onAddNew, onSettings }: {
 }) {
   return <>
     <div className="login-screen-title">Welcome back</div>
-    <div className="login-account-list">
+    <div className="login-accounts-list">
       {accounts.map(a => (
-        <button key={a.name} className="login-account-item" onClick={() => onSelect(a)}>
+        <button key={a.name} className="login-account-btn" onClick={() => onSelect(a)}>
           <div className="login-account-info">
             <span className="login-account-name">{a.name}</span>
             {a.lastCharacter && <span className="login-account-last">Last: {a.lastCharacter}</span>}
@@ -119,10 +119,10 @@ function InstanceSelectScreen({ instances, onSelect, onBack, error, loading }: {
   return <>
     <Back onClick={onBack} />
     <div className="login-screen-title">Choose server</div>
-    <div className="login-account-list">
+    <div className="login-accounts-list">
       {drInstances.map(inst => (
         <button key={inst.code}
-          className="login-account-item"
+          className="login-account-btn"
           onClick={() => !loading && onSelect(inst)}
           disabled={loading}>
           <div className="login-account-info">
@@ -151,7 +151,7 @@ function CharacterSelectScreen({ characters, lastCharId, onSelect, onBack, error
   return <>
     <Back onClick={onBack} />
     <div className="login-screen-title">Choose character</div>
-    <div className="login-account-list">
+    <div className="login-accounts-list">
       {characters.map(c => (
         <button key={c.id}
           className={`login-account-item ${c.id === lastCharId ? 'login-account-item--last' : ''}`}
@@ -175,16 +175,25 @@ function ConnectingScreen({ characterName, logLines, error, onBack }: {
   error:         string
   onBack:        () => void
 }) {
+  const logRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+  }, [logLines])
+
   return <>
     <div className="login-screen-title">
       {error ? 'Connection failed' : `Entering as ${characterName}…`}
     </div>
     {!error && <div className="login-connecting-dots"><span /><span /><span /></div>}
-    {!error && <p className="login-hint">Connecting to DragonRealms…</p>}
     {error && <div className="login-error">{error}</div>}
     {logLines.length > 0 && (
-      <div className="login-log">{logLines.map((l, i) => <div key={i}>{l}</div>)}</div>
+      <div className="login-log" ref={logRef}>
+        {logLines.map((l, i) => (
+          <div key={i} className={l.startsWith('[error]') ? 'login-log-error' : ''}>{l}</div>
+        ))}
+      </div>
     )}
+    {!error && logLines.length === 0 && <p className="login-hint">Connecting to DragonRealms…</p>}
     {error && <button className="login-btn-secondary" onClick={onBack}>← Back</button>}
   </>
 }
@@ -239,7 +248,6 @@ export function LoginFlow({ onEnterGame }: LoginFlowProps) {
 
   useEffect(() => {
     const unsubs = [
-      // Enter game when Lich is ready (Lich mode) OR when game connects (direct mode)
       window.dr.lich.onStatus((s: string) => { if (s === 'ready') onEnterGame() }),
       window.dr.game.onConnected(() => onEnterGame()),
       window.dr.lich.onError((msg: string) => setError(msg)),

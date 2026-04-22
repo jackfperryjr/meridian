@@ -75,13 +75,14 @@ export class LichManager extends EventEmitter {
     this.setStatus('starting')
     this._spawn(rubyPath, args)
 
-    // Signal ready after 3s — gameConn retry loop handles actual connection timing
+    // Signal ready after 8s — gives Lich time to connect to game and parse
+    // the initial XML (character name, vitals etc) before scripts start running
     setTimeout(() => {
       if (this.status === 'starting') {
         this.setStatus('ready')
-        this.emit('ready', 11024)  // for lichConn ;commands
+        this.emit('ready', 11024)
       }
-    }, 3000)
+    }, 8000)
 
     return { ok: true }
   }

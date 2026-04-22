@@ -42,6 +42,16 @@ export interface TextStyle {
 
 const TAG_RE = /<([^>]+)>|([^<]+)/g
 
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+}
+
 export function parseLine(line: string): GameEvent[] {
   const events: GameEvent[] = []
   let styles:   TextStyle[] = []
@@ -51,15 +61,20 @@ export function parseLine(line: string): GameEvent[] {
   let inInv      = false
 
   const flush = (forcePreset?: string) => {
-    const text = buf
+    // Normalize internal newlines/excess whitespace within a chunk
+    const text = buf.replace(/\n/g, ' ').replace(/ {2,}/g, ' ')
     buf = ''
-    if (!text.trim()) return
+    if (!text.trim() || text.trim() === '>') return
     const s = forcePreset ? [{ preset: forcePreset }] : [...styles]
     events.push({ type: 'text', text, styles: s })
   }
 
   if (!line.includes('<')) {
-    if (line.trim()) events.push({ type: 'text', text: line, styles: [] })
+    const decoded = decodeEntities(line)
+    // Bare ">" lines are prompt echoes from Lich — suppress them
+    if (decoded.trim() && decoded.trim() !== '>') {
+      events.push({ type: 'text', text: decoded, styles: [] })
+    }
     return events
   }
 
@@ -70,7 +85,7 @@ export function parseLine(line: string): GameEvent[] {
     const [, tag, text] = m
 
     if (text !== undefined) {
-      buf += text
+      buf += decodeEntities(text)
       continue
     }
     if (!tag) continue
