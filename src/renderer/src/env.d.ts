@@ -1,0 +1,49 @@
+interface SGECharacter  { id: string; name: string }
+interface SGEInstance   { code: string; name: string }
+interface SavedAccount  { name: string; lastCharacter?: string }
+
+interface AppSettings {
+  lichPath:    string
+  accounts:    SavedAccount[]
+  lastAccount: string
+  fontSize:    number
+  fontFamily:  string
+}
+
+interface DrAPI {
+  settings: {
+    getAll: () => Promise<AppSettings>
+    patch:  (p: Partial<AppSettings>) => Promise<void>
+  }
+  auth: {
+    login: (account: string, password: string) => Promise<
+      { ok: true; instances: SGEInstance[] } | { ok: false; error: string }
+    >
+    selectInstance: (instanceCode: string) => Promise<
+      { ok: true; characters: SGECharacter[] } | { ok: false; error: string }
+    >
+    selectCharacter: (characterId: string, characterName: string, accountName: string) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
+  }
+  lich: {
+    detectPath: () => Promise<string>
+    stop:          () => Promise<void>
+    launchSidecar: (charName: string) => Promise<{ ok: boolean; error?: string }>
+    onLog:    (cb: (l: string) => void) => () => void
+    onStatus: (cb: (s: string) => void) => () => void
+    onError:  (cb: (m: string) => void) => () => void
+  }
+  game: {
+    getStatus:      ()               => Promise<string>
+    disconnect:     ()               => Promise<void>
+    send:           (d: string)      => Promise<void>
+    onData:         (cb: (r: string) => void) => () => void
+    onConnected:    (cb: () => void)           => () => void
+    onDisconnected: (cb: () => void)           => () => void
+    onError:        (cb: (e: string) => void)  => () => void
+  }
+}
+
+declare global { interface Window { dr: DrAPI } }
+export {}
