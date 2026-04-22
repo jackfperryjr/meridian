@@ -40,7 +40,16 @@ export class LichManager extends EventEmitter {
    * Lich opens port 11024 within ~2-3s; the retry loop catches it.
    * No polling here — the caller (index.ts) drives the connection.
    */
-  spawnOnly(characterName: string, lichPathOverride?: string): { ok: boolean; error?: string } {
+  /**
+   * Spawn Lich using --frostbite -g host:port, exactly like Frostbite does.
+   * No --login, no entry.yaml — Lich connects to the game server directly
+   * using the host:port we provide from our SGE auth.
+   */
+  spawnOnly(
+    gameHost: string,
+    gamePort: number,
+    lichPathOverride?: string
+  ): { ok: boolean; error?: string } {
     if (this.process) this.stop()
 
     const lichPath = this.getLichPath(lichPathOverride)
@@ -52,25 +61,27 @@ export class LichManager extends EventEmitter {
     const rubyPath = this.getRubyPath()
     const lichDir  = dirname(lichPath)
 
+    // Same launch pattern as Frostbite:
+    // ruby lich.rbw --dragonrealms --frostbite -g dr.simutronics.net:11024
     const args = [
       lichPath,
       `--home=${lichDir}`,
-      `--login=${characterName}`,
       '--dragonrealms',
+      '--frostbite',
+      `-g`, `${gameHost}:${gamePort}`,
     ]
 
     this.emit('log', `Launching Lich: ${rubyPath} ${args.join(' ')}`)
     this.setStatus('starting')
     this._spawn(rubyPath, args)
 
-    // Signal ready after 5s so lichConn can connect to port 4901.
-    // The actual game connection (port 11024) is handled by gameConn's retry loop.
+    // Signal ready after 3s — gameConn retry loop handles actual connection timing
     setTimeout(() => {
       if (this.status === 'starting') {
         this.setStatus('ready')
-        this.emit('ready', 4901)
+        this.emit('ready', 11024)  // for lichConn ;commands
       }
-    }, 5000)
+    }, 3000)
 
     return { ok: true }
   }

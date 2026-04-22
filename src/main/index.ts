@@ -68,7 +68,7 @@ function setupIpcHandlers(): void {
   ipcMain.handle('settings:patch',   (_e, p) => settings.patch(p))
 
   ipcMain.handle('auth:login', async (_e, account: string, password: string) => {
-    const result = await sgeAuth(account, password, (l) => lichLog(`[sge] ${l}`))
+    const result = await sgeAuth(account, password, (l) => lichLog('[sge] ' + l))
     if (!result.ok) return result
     pendingSelectInstance = result.selectInstance
     settings.saveAccount(account)
@@ -90,6 +90,8 @@ function setupIpcHandlers(): void {
     _e, characterId: string, characterName: string, accountName: string
   ) => {
     if (!pendingSelectCharacter) return { ok: false, error: 'Session expired.' }
+
+    // Always do the L step to get a fresh key
     let key: SGELaunchKey
     try {
       key = await pendingSelectCharacter(characterId)
@@ -101,60 +103,45 @@ function setupIpcHandlers(): void {
 
     const lichPath = settings.get('lichPath')
     if (lichPath) {
-      // Lich mode: spawn Lich, then immediately start retrying port 11024.
-      // Lich opens 11024 within ~2-3s of starting and waits 30s for us.
-      // The retry loop connects the moment Lich is ready.
-      lichLog(`[sge] Launching Lich for ${characterName}…`)
-      lichManager.spawnOnly(characterName, lichPath)
-      lichLog(`[sge] Connecting to Lich on port 11024 (retrying until ready)…`)
-      gameConn.connect('127.0.0.1', 11024)
+      // Lich mode: launch with --frostbite -g host:port (exactly like Frostbite)
+      // Then connect to Lich's port 4901 and send the key — Lich forwards it to game
+      lichLog('[sge] Launching Lich (frostbite mode) for ' + characterName + '...')
+      lichManager.spawnOnly(key.host, key.port, lichPath)
+      lichLog('[sge] Connecting to Lich on port 11024 (retrying until ready)...')
+      gameConn.connectWithKey('127.0.0.1', 11024, key.key)
     } else {
-      lichLog(`[sge] Connecting directly to ${key.host}:${key.port}`)
+      lichLog('[sge] Connecting directly to ' + key.host + ':' + key.port)
       gameConn.connectDirect(key.host, key.port, key.key)
     }
     return { ok: true }
   })
 
-  ipcMain.handle('lich:get-log',      () => lichLogBuffer.slice())
-  ipcMain.handle('lich:detect-path',  () => lichManager.getLichPath(settings.get('lichPath') || undefined))
-  ipcMain.handle('lich:stop',         () => { lichManager.stop(); lichConn.disconnect() })
-
-  // In-game "Start Lich" button — only useful when connected directly (no Lich path at login)
-  ipcMain.handle('lich:launch-sidecar', (_e, charName: string) => {
-    const lichPath = settings.get('lichPath') || undefined
-    if (!lichPath) return { ok: false, error: 'No Lich path configured in Settings.' }
-    lichLog('[lich] Starting Lich sidecar — game connection will be rerouted through Lich')
-    lichManager.spawnOnly(charName, lichPath)
-    // Disconnect from game server and reconnect via Lich
-    gameConn.disconnect()
-    setTimeout(() => {
-      lichLog('[sge] Reconnecting via Lich on port 11024…')
-      gameConn.connect('127.0.0.1', 11024)
-    }, 500)
-    return { ok: true }
+  ipcMain.handle('lich:get-log',     () => lichLogBuffer.slice())
+  ipcMain.handle('lich:detect-path', () => lichManager.getLichPath(settings.get('lichPath') || undefined))
+  ipcMain.handle('lich:stop',        () => { lichManager.stop(); lichConn.disconnect() })
+  ipcMain.handle('lich:launch-sidecar', (_e, _charName: string) => {
+    return { ok: false, error: 'Use the Lich path in Settings to enable Lich at login.' }
   })
 
   lichManager.on('log',    (l: string) => lichLog(l))
   lichManager.on('status', (s: string) => mainWindow?.webContents.send('lich:status', s))
-  lichManager.on('error',  (m: string) => { lichLog(`[error] ${m}`); mainWindow?.webContents.send('lich:error', m) })
+  lichManager.on('error',  (m: string) => { lichLog('[error] ' + m); mainWindow?.webContents.send('lich:error', m) })
   lichManager.on('ready',  (port: number) => {
-    lichLog(`[lich] Sidecar ready on port ${port} — ;commands are active`)
-    lichConn.connect(port)
+    lichLog('[lich] Lich ready on port ' + port + ' -- ;commands route through main connection')
+    // Don't connect lichConn here -- it would steal gameConn's slot on port 11024
+    // ;commands are sent via gameConn directly; Lich intercepts them
   })
 
   ipcMain.handle('game:get-status', () => gameConn.getStatus())
   ipcMain.handle('game:disconnect', () => gameConn.disconnect())
   ipcMain.handle('game:send', (_e, d: string) => {
-    if (d.startsWith(';') && lichConn.isConnected()) {
-      lichConn.send(d)
-    } else {
-      gameConn.send(d)
-    }
+    // All commands go through gameConn -- Lich intercepts ; prefixed lines
+    gameConn.send(d)
   })
 
-  gameConn.on('log',          (l: string) => lichLog(`[game] ${l}`))
+  gameConn.on('log',          (l: string) => lichLog('[game] ' + l))
   gameConn.on('data',         (r: string) => mainWindow?.webContents.send('game:data', r))
   gameConn.on('connected',    ()          => { lichLog('[game] Connected'); mainWindow?.webContents.send('game:connected') })
   gameConn.on('disconnected', ()          => mainWindow?.webContents.send('game:disconnected'))
-  gameConn.on('error',        (e: string) => { lichLog(`[game] Error: ${e}`); mainWindow?.webContents.send('game:error', e) })
+  gameConn.on('error',        (e: string) => { lichLog('[game] Error: ' + e); mainWindow?.webContents.send('game:error', e) })
 }

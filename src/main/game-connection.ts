@@ -5,55 +5,83 @@ export class GameConnection extends EventEmitter {
   private socket: Socket | null = null
   private buffer = ''
 
-  /**
-   * Connect directly to the game server using the SGE launch key.
-   * Sends KEY\n then /FE:STORM\n immediately on connect.
-   */
+  /** Direct connection to game server: send KEY then /FE:STORM */
   connectDirect(host: string, port: number, key: string): void {
     if (this.socket) this.disconnect()
     this.socket = new Socket()
     this.socket.setEncoding('latin1')
-
     this.socket.on('connect', () => {
       this.socket!.write(key + '\n', 'latin1')
       this.socket!.write('/FE:STORM\n', 'latin1')
       this.emit('connected')
     })
-
-    this.socket.on('data', (chunk: string) => { this.buffer += chunk; this.flush() })
-    this.socket.on('close', () => { this.emit('disconnected'); this.socket = null })
-    this.socket.on('error', (err) => this.emit('error', err.message))
+    this.socket.on('data',  (c: string) => { this.buffer += c; this.flush() })
+    this.socket.on('close', ()          => { this.emit('disconnected'); this.socket = null })
+    this.socket.on('error', (e)         => this.emit('error', e.message))
     this.socket.connect(port, host)
   }
 
   /**
-   * Connect to Lich's proxy port.
-   * Lich handles the game server connection — we just receive the stream.
-   * No handshake needed; Lich starts streaming immediately on connect.
-   * Retries every 500ms on ECONNREFUSED (Lich may not be ready yet).
+   * Connect to Lich's --frostbite proxy port (4901) and send the SGE key.
+   * This is exactly how Frostbite connects to Lich:
+   *   1. TCP connect to 127.0.0.1:4901
+   *   2. Send KEY + newline  (Lich forwards this to the game server)
+   *   3. Game stream flows back
+   * Retries on ECONNREFUSED until Lich opens its port.
    */
+  connectWithKey(host: string, port: number, key: string): void {
+    if (this.socket) this.disconnect()
+    this.emit('log', 'Attempting to connect to ' + host + ':' + port + '...')
+    this._tryConnectWithKey(host, port, key, 0)
+  }
+
+  private _tryConnectWithKey(host: string, port: number, key: string, attempts: number): void {
+    if (this.socket) return
+    const s = new Socket()
+    s.setEncoding('latin1')
+    s.on('connect', () => {
+      this.socket = s
+      this.emit('log', 'Connected to Lich on port ' + port + ', sending key...')
+      s.write(key + '\n', 'latin1')
+      this.emit('connected')
+    })
+    s.on('data',  (c: string) => {
+      if (this.buffer.length === 0) {
+        // Log first chunk to see what Lich sends back
+        this.emit('log', 'First data from Lich (' + c.length + ' bytes): ' + JSON.stringify(c.slice(0, 80)))
+      }
+      this.buffer += c; this.flush()
+    })
+    s.on('close', ()          => { this.emit('disconnected'); this.socket = null })
+    s.on('error', (err) => {
+      s.destroy()
+      if (err.message.includes('ECONNREFUSED') && attempts < 240) {
+        setTimeout(() => this._tryConnectWithKey(host, port, key, attempts + 1), 500)
+      } else {
+        this.emit('error', err.message)
+      }
+    })
+    s.connect(port, host)
+  }
+
+  /** Connect to Lich proxy without sending a key (for already-authenticated sessions) */
   connect(host: string, port: number): void {
     if (this.socket) this.disconnect()
-    this.emit('log', `Attempting to connect to ${host}:${port}…`)
+    this.emit('log', 'Attempting to connect to ' + host + ':' + port + '...')
     this._tryConnect(host, port, 0)
   }
 
   private _tryConnect(host: string, port: number, attempts: number): void {
     if (this.socket) return
-
     const s = new Socket()
     s.setEncoding('latin1')
-
     s.on('connect', () => {
       this.socket = s
-      this.emit('log', `Connected to Lich proxy on port ${port}`)
-      // No handshake — Lich streams directly after TCP connect
+      this.emit('log', 'Connected to ' + host + ':' + port)
       this.emit('connected')
     })
-
-    s.on('data', (chunk: string) => { this.buffer += chunk; this.flush() })
-    s.on('close', () => { this.emit('disconnected'); this.socket = null })
-
+    s.on('data',  (c: string) => { this.buffer += c; this.flush() })
+    s.on('close', ()          => { this.emit('disconnected'); this.socket = null })
     s.on('error', (err) => {
       s.destroy()
       if (err.message.includes('ECONNREFUSED') && attempts < 240) {
@@ -62,7 +90,6 @@ export class GameConnection extends EventEmitter {
         this.emit('error', err.message)
       }
     })
-
     s.connect(port, host)
   }
 
