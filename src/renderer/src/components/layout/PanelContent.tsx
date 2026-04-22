@@ -1,31 +1,51 @@
 import { useAtomValue } from 'jotai'
+import { useEffect, useRef } from 'react'
 import {
-  vitalsAtom,
-  roomAtom,
-  activeSpellAtom,
-  roundtimeSecondsAtom,
-  indicatorsAtom,
-  outputLinesAtom,
-  inventoryLinesAtom,
+  vitalsAtom, roomAtom, activeSpellAtom, roundtimeSecondsAtom,
+  indicatorsAtom, outputLinesAtom, inventoryLinesAtom,
+  expAtom, combatLinesAtom, atmoLinesAtom, convLinesAtom,
   type OutputLine
 } from '../../store/game'
 
-// ── Room Panel ────────────────────────────────────────────────────────────────
+// ── Auto-scroll helper ─────────────────────────────────────────────────────────
+function ScrollPanel({ children, deps }: { children: React.ReactNode; deps: unknown[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [deps])  // eslint-disable-line react-hooks/exhaustive-deps
+  return <div ref={ref} style={{ overflow: 'auto', maxHeight: '100%' }}>{children}</div>
+}
+
 export function RoomPanel() {
   const room = useAtomValue(roomAtom)
   return (
-    <div className="panel-content room-panel-content">
+    <div className="room-panel">
       <div className="room-name">{room.name || '—'}</div>
-      {room.description
-        ? <div className="room-desc">{room.description}</div>
-        : <div className="panel-empty">No description</div>
-      }
+      {room.description && <div className="room-desc">{room.description}</div>}
+      {room.exits.length > 0 && (
+        <div className="room-exits">
+          <span className="room-exits-label">Exits: </span>
+          {room.exits.map((dir, i) => (
+            <span key={dir}>
+              <span
+                className="game-link"
+                onClick={() => window.dr.game.send(dir)}
+                title={'go ' + dir}
+              >
+                {dir}
+              </span>
+              {i < room.exits.length - 1 && <span className="room-exits-sep">, </span>}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Vitals Panel ──────────────────────────────────────────────────────────────
-function VitalBar({ label, value, max, cls }: {
+// ── Vitals Panel ───────────────────────────────────────────────────────────────
+function VitalRow({ label, value, max, cls }: {
   label: string; value: number; max: number; cls: string
 }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
@@ -35,7 +55,7 @@ function VitalBar({ label, value, max, cls }: {
       <div className="vital-track">
         <div className={`vital-fill ${cls}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="vital-value">{pct}%</span>
+      <span className="vital-value">{value}<span className="vital-max">/{max}</span></span>
     </div>
   )
 }
@@ -47,84 +67,90 @@ export function VitalsPanel() {
   const active     = Object.entries(indicators).filter(([, v]) => v)
 
   return (
-    <div className="panel-content">
-      <VitalBar label="HP"  {...vitals.health}      cls="vital-health"  />
-      <VitalBar label="MP"  {...vitals.mana}        cls="vital-mana"    />
-      <VitalBar label="SP"  {...vitals.stamina}      cls="vital-stamina" />
-      <VitalBar label="ST"  {...vitals.spirit}       cls="vital-spirit"  />
-      <VitalBar label="ENC" {...vitals.encumbrance} cls="vital-enc"     />
-      {rt > 0 && (
-        <div className="roundtime-badge" style={{ marginTop: 6 }}>RT: {rt}s</div>
-      )}
+    <div>
+      <VitalRow label="HP"  {...vitals.health}      cls="vital-health"  />
+      <VitalRow label="MP"  {...vitals.mana}        cls="vital-mana"    />
+      <VitalRow label="SP"  {...vitals.stamina}     cls="vital-stamina" />
+      <VitalRow label="ST"  {...vitals.spirit}      cls="vital-spirit"  />
+      <VitalRow label="ENC" {...vitals.encumbrance} cls="vital-enc"     />
+      {rt > 0 && <div className="roundtime-badge">RT: {rt}s</div>}
       {active.length > 0 && (
-        <div className="indicators" style={{ marginTop: 4 }}>
-          {active.map(([id]) => (
-            <span key={id} className="indicator-badge">{id}</span>
-          ))}
+        <div className="indicators">
+          {active.map(([id]) => <span key={id} className="indicator-badge">{id}</span>)}
         </div>
       )}
     </div>
   )
 }
 
-// ── Active Spells Panel ───────────────────────────────────────────────────────
+// ── Experience Panel ───────────────────────────────────────────────────────────
+export function ExperiencePanel() {
+  const exp = useAtomValue(expAtom)
+
+  if (exp.skills.length === 0) {
+    return <div className="panel-empty">Type EXP to load experience data</div>
+  }
+
+  return (
+    <div className="exp-panel">
+      {(exp.tdps > 0 || exp.favors > 0) && (
+        <div className="exp-meta">
+          {exp.tdps   > 0 && <span className="exp-meta-item">TDPs: <b>{exp.tdps}</b></span>}
+          {exp.favors > 0 && <span className="exp-meta-item">Favors: <b>{exp.favors}</b></span>}
+        </div>
+      )}
+      <table className="exp-table">
+        <tbody>
+          {exp.skills.map(s => (
+            <tr key={s.name} className="exp-row">
+              <td className="exp-skill">{s.name}</td>
+              <td className="exp-rank">{s.rank}</td>
+              <td className="exp-pct">{s.pct}%</td>
+              <td className="exp-mind">{s.mind}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ── Spells Panel ───────────────────────────────────────────────────────────────
 export function SpellsPanel() {
   const spell = useAtomValue(activeSpellAtom)
+  return spell
+    ? <div className="active-spell">{spell}</div>
+    : <div className="panel-empty">No active spell</div>
+}
+
+// ── Combat Panel ───────────────────────────────────────────────────────────────
+export function CombatPanel() {
+  const lines = useAtomValue(combatLinesAtom)
+  if (lines.length === 0) return <div className="panel-empty">No combat yet</div>
   return (
-    <div className="panel-content">
-      {spell
-        ? <div className="active-spell-row">{spell}</div>
-        : <div className="panel-empty">No active spell</div>
-      }
-    </div>
+    <ScrollPanel deps={[lines.length]}>
+      {lines.map((l: OutputLine) => (
+        <div key={l.id} className="combat-line">{l.text}</div>
+      ))}
+    </ScrollPanel>
   )
 }
 
-// ── Experience Panel ──────────────────────────────────────────────────────────
-export function ExperiencePanel() {
-  const lines = useAtomValue(outputLinesAtom)
-  const expLines = lines
-    .filter(l => /experience|mindstate|absorbed|field exp/i.test(l.text))
-    .slice(-12)
-
+// ── Atmo Panel ─────────────────────────────────────────────────────────────────
+export function AtmoPanel() {
+  const lines = useAtomValue(atmoLinesAtom)
+  if (lines.length === 0) return <div className="panel-empty">No atmospheric messages yet</div>
   return (
-    <div className="panel-content panel-content-scroll">
-      {expLines.length === 0
-        ? <div className="panel-empty">No experience data yet — type EXP</div>
-        : expLines.map((l: OutputLine) => (
-            <div key={l.id} className="exp-line">{l.text.trim()}</div>
-          ))
-      }
-    </div>
+    <ScrollPanel deps={[lines.length]}>
+      {lines.map((l: OutputLine) => (
+        <div key={l.id} className="atmo-line">{l.text}</div>
+      ))}
+    </ScrollPanel>
   )
 }
 
-// ── Conversation Panel ────────────────────────────────────────────────────────
-export function ConversationPanel() {
-  const lines = useAtomValue(outputLinesAtom)
-  const convLines = lines.filter(l =>
-    l.styles.some(s =>
-      s.preset === 'speech' || s.preset === 'whisper' ||
-      s.preset === 'thought' || s.preset === 'shout'
-    )
-  ).slice(-60)
-
-  return (
-    <div className="panel-content panel-content-scroll">
-      {convLines.length === 0
-        ? <div className="panel-empty">No conversation yet</div>
-        : convLines.map((l: OutputLine) => (
-            <div key={l.id} className="conv-line"
-              style={{ color: convColor(l.styles[0]?.preset) }}>
-              {l.text.trim()}
-            </div>
-          ))
-      }
-    </div>
-  )
-}
-
-function convColor(preset?: string): string {
+// ── Conversation Panel ─────────────────────────────────────────────────────────
+const convColor = (preset?: string) => {
   switch (preset) {
     case 'speech':  return 'var(--color-speech)'
     case 'whisper': return 'var(--color-whisper)'
@@ -133,17 +159,24 @@ function convColor(preset?: string): string {
   }
 }
 
-// ── Inventory Panel ───────────────────────────────────────────────────────────
+export function ConversationPanel() {
+  const lines = useAtomValue(convLinesAtom)
+  if (lines.length === 0) return <div className="panel-empty">No conversation yet</div>
+  return (
+    <ScrollPanel deps={[lines.length]}>
+      {lines.map((l: OutputLine) => (
+        <div key={l.id} className="conv-line" style={{ color: convColor(l.styles[0]?.preset) }}>
+          {l.text}
+        </div>
+      ))}
+    </ScrollPanel>
+  )
+}
+
+// ── Inventory Panel ────────────────────────────────────────────────────────────
 export function InventoryPanel() {
   const lines = useAtomValue(inventoryLinesAtom)
-  return (
-    <div className="panel-content panel-content-scroll">
-      {lines.length === 0
-        ? <div className="panel-empty">Type INV to see inventory</div>
-        : lines.map((line, i) => (
-            <div key={i} className="inv-line">{line}</div>
-          ))
-      }
-    </div>
-  )
+  return lines.length === 0
+    ? <div className="panel-empty">Type INV to see inventory</div>
+    : <div>{lines.map((line, i) => <div key={i} className="inv-line">{line}</div>)}</div>
 }

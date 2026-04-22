@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Provider, useSetAtom } from 'jotai'
 import { useGameConnection }  from './hooks/useGameConnection'
-import { GameOutput, setHighlights } from './components/game/GameOutput'
+import { GameOutput, setHighlights, setSendFn } from './components/game/GameOutput'
 import { CommandInput, StatusBar } from './components/game'
 import { LoginFlow }          from './components/ui/LoginFlow'
 import { SettingsModal }      from './components/ui/SettingsModal'
@@ -11,6 +11,7 @@ import type { PanelId }       from './components/layout/PanelSidebar'
 import {
   RoomPanel, VitalsPanel, SpellsPanel,
   ExperiencePanel, ConversationPanel, InventoryPanel,
+  CombatPanel, AtmoPanel,
 } from './components/layout/PanelContent'
 import { echoCommandAtom }    from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
@@ -22,17 +23,53 @@ function renderPanel(id: PanelId) {
     case 'vitals':       return <VitalsPanel />
     case 'spells':       return <SpellsPanel />
     case 'experience':   return <ExperiencePanel />
+    case 'combat':       return <CombatPanel />
+    case 'atmo':         return <AtmoPanel />
     case 'conversation': return <ConversationPanel />
     case 'inventory':    return <InventoryPanel />
     default:             return null
   }
 }
 
+// ── Horizontal resize between game col and sidebar ────────────────────────────
+function ColResize({ onDrag }: { onDrag: (dx: number) => void }) {
+  const dragging = useRef(false)
+  const lastX    = useRef(0)
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    dragging.current = true
+    lastX.current    = e.clientX
+    document.body.style.cursor    = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return
+      onDrag(e.clientX - lastX.current)
+      lastX.current = e.clientX
+    }
+    const onUp = () => {
+      dragging.current = false
+      document.body.style.cursor    = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup',  onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup',  onUp)
+    }
+  }, [onDrag])
+
+  return <div className="col-resize-handle" onMouseDown={onMouseDown} />
+}
+
+// ── Lich log drawer ───────────────────────────────────────────────────────────
 function LichLogDrawer({ lines, onClose }: { lines: string[]; onClose: () => void }) {
   const bottomRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [lines])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [lines])
   return (
     <div className="lich-drawer">
       <div className="lich-drawer-header">
@@ -41,9 +78,7 @@ function LichLogDrawer({ lines, onClose }: { lines: string[]; onClose: () => voi
       </div>
       <div className="lich-drawer-body">
         {lines.map((l, i) => (
-          <div key={i} className={`lich-log-line ${l.startsWith('[error]') ? 'lich-log-error' : ''}`}>
-            {l}
-          </div>
+          <div key={i} className={`lich-log-line${l.startsWith('[error]') ? ' lich-log-error' : ''}`}>{l}</div>
         ))}
         <div ref={bottomRef} />
       </div>
@@ -51,23 +86,29 @@ function LichLogDrawer({ lines, onClose }: { lines: string[]; onClose: () => voi
   )
 }
 
-function GameLayout() {
+// ── Game layout ───────────────────────────────────────────────────────────────
+function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
   const { status, disconnect, send } = useGameConnection()
-  const echoCommand  = useSetAtom(echoCommandAtom)
-  const [lichStatus, setLichStatus]   = useState<'stopped'|'starting'|'ready'|'error'>('stopped')
-  const [lichLog,    setLichLog]      = useState<string[]>([])
-  const [showLog,    setShowLog]      = useState(false)
+  // Register send fn for clickable links
+  useEffect(() => { setSendFn(send) }, [send])
+  const echoCommand = useSetAtom(echoCommandAtom)
+
+  const [lichStatus,     setLichStatus]     = useState<'stopped'|'starting'|'ready'|'error'>('stopped')
+  const [lichLog,        setLichLog]        = useState<string[]>([])
+  const [showLog,        setShowLog]        = useState(false)
   const [showSettings,   setShowSettings]   = useState(false)
   const [showHighlights, setShowHighlights] = useState(false)
+  const [sidebarWidth,   setSidebarWidth]   = useState<number | null>(null)
+  const mainAreaRef = useRef<HTMLDivElement>(null)
 
+  // Load settings + apply theme/font/highlights on mount
   useEffect(() => {
     window.dr.settings.getAll().then(s => {
-      const settings = s as Record<string, unknown>
-      if (settings.fontSize)   document.documentElement.style.setProperty('--font-size-game', `${settings.fontSize}px`)
-      if (settings.fontFamily) document.documentElement.style.setProperty('--font-game', `'${settings.fontFamily}', monospace`)
-      if (settings.theme)      applyTheme(settings.theme as string)
-      // Seed default highlights on first run
-      const hls = (settings.highlights as never[] | undefined)
+      const st = s as Record<string, unknown>
+      if (st.fontSize)   document.documentElement.style.setProperty('--font-size-game', `${st.fontSize}px`)
+      if (st.fontFamily) document.documentElement.style.setProperty('--font-game', `'${st.fontFamily}', monospace`)
+      if (st.theme)      applyTheme(st.theme as string)
+      const hls = st.highlights as never[] | undefined
       if (hls && hls.length > 0) {
         setHighlights(hls)
       } else {
@@ -88,25 +129,34 @@ function GameLayout() {
     return () => unsubs.forEach(fn => fn())
   }, [])
 
-  // Reload highlights when highlights modal closes
   const handleHighlightsClose = () => {
     setShowHighlights(false)
     window.dr.settings.getAll().then(s => {
-      const settings = s as Record<string, unknown>
-      if (settings.highlights) setHighlights(settings.highlights as never[])
+      const st = s as Record<string, unknown>
+      if (st.highlights) setHighlights(st.highlights as never[])
     })
   }
 
   const handleStartLich = async () => {
-    const s = await window.dr.settings.getAll()
-    const settings = s as Record<string, unknown>
-    if (!settings.lichPath) { setShowSettings(true); return }
-    const accounts = (settings.accounts ?? []) as { name: string; lastCharacter?: string }[]
-    const lastChar = accounts.find(a => a.name === settings.lastAccount)?.lastCharacter
+    const s  = await window.dr.settings.getAll()
+    const st = s as Record<string, unknown>
+    if (!st.lichPath) { setShowSettings(true); return }
+    const accounts = (st.accounts ?? []) as { name: string; lastCharacter?: string }[]
+    const lastChar  = accounts.find(a => a.name === st.lastAccount)?.lastCharacter
     if (!lastChar) { alert('Could not determine character name.'); return }
     setLichLog([])
     window.dr.lich.launchSidecar(lastChar)
   }
+
+  const handleColDrag = useCallback((dx: number) => {
+    const el = mainAreaRef.current
+    if (!el) return
+    const total = el.clientWidth
+    setSidebarWidth(w => {
+      const current = w ?? Math.round(total / 3)
+      return Math.max(160, Math.min(total - 300, current - dx))
+    })
+  }, [])
 
   return (
     <div className="app-shell">
@@ -122,7 +172,7 @@ function GameLayout() {
         onHighlights={() => setShowHighlights(true)}
       />
       {showLog && <LichLogDrawer lines={lichLog} onClose={() => setShowLog(false)} />}
-      <div className="main-area">
+      <div className="main-area" ref={mainAreaRef}>
         <div className="game-col">
           <main className="game-output-wrap">
             <GameOutput />
@@ -131,18 +181,35 @@ function GameLayout() {
             <CommandInput onSend={send} onEcho={echoCommand} />
           </footer>
         </div>
-        <PanelSidebar renderPanel={renderPanel} />
+        <ColResize onDrag={handleColDrag} />
+        <PanelSidebar renderPanel={renderPanel} sidebarWidth={sidebarWidth} />
       </div>
-      {showSettings   && <SettingsModal    onClose={() => setShowSettings(false)} />}
-      {showHighlights && <HighlightsModal  onClose={handleHighlightsClose} />}
+      {showSettings   && <SettingsModal   onClose={() => setShowSettings(false)} />}
+      {showHighlights && <HighlightsModal onClose={handleHighlightsClose} />}
+      {status === 'disconnected' && (
+        <div className="disconnect-overlay">
+          <div className="disconnect-box">
+            <div className="disconnect-title">Disconnected</div>
+            <p className="disconnect-msg">Connection to the game server was lost.</p>
+            <button className="login-btn" onClick={onReturnToLogin}>Return to Login</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 function AppInner() {
   const [inGame, setInGame] = useState(false)
+
+  useEffect(() => {
+    if (!inGame) return
+    // If we get disconnected while in game, show reconnect overlay
+    // (handled inside GameLayout via onReturnToLogin)
+  }, [inGame])
+
   if (!inGame) return <LoginFlow onEnterGame={() => setInGame(true)} />
-  return <GameLayout />
+  return <GameLayout onReturnToLogin={() => setInGame(false)} />
 }
 
 export default function App() {

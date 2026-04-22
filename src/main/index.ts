@@ -13,10 +13,17 @@ const lichConn    = new LichConnection()
 const settings    = new SettingsStore()
 
 const lichLogBuffer: string[] = []
+
+function send(channel: string, ...args: unknown[]): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args)
+  }
+}
+
 function lichLog(line: string) {
   lichLogBuffer.push(line)
   if (lichLogBuffer.length > 200) lichLogBuffer.shift()
-  mainWindow?.webContents.send('lich:log', line)
+  send('lich:log', line)
 }
 
 let pendingSelectInstance:  ((code: string) => Promise<unknown>) | null = null
@@ -39,12 +46,12 @@ function createWindow(): void {
   }
   mainWindow.webContents.on('did-finish-load', () => {
     for (const line of lichLogBuffer) {
-      mainWindow?.webContents.send('lich:log', line)
+      send('lich:log', line)
     }
     mainWindow?.webContents.send(
       gameConn.getStatus() === 'connected' ? 'game:connected' : 'game:disconnected'
     )
-    mainWindow?.webContents.send('lich:status', lichManager.getStatus())
+    send('lich:status', lichManager.getStatus())
   })
 }
 
@@ -57,6 +64,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  mainWindow = null
   gameConn.disconnect()
   lichConn.disconnect()
   lichManager.stop()
@@ -124,8 +132,8 @@ function setupIpcHandlers(): void {
   })
 
   lichManager.on('log',    (l: string) => lichLog(l))
-  lichManager.on('status', (s: string) => mainWindow?.webContents.send('lich:status', s))
-  lichManager.on('error',  (m: string) => { lichLog('[error] ' + m); mainWindow?.webContents.send('lich:error', m) })
+  lichManager.on('status', (s: string) => send('lich:status', s))
+  lichManager.on('error',  (m: string) => { lichLog('[error] ' + m); send('lich:error', m) })
   lichManager.on('ready',  (port: number) => {
     lichLog('[lich] Lich ready on port ' + port + ' -- ;commands route through main connection')
     // Don't connect lichConn here -- it would steal gameConn's slot on port 11024
@@ -142,7 +150,7 @@ function setupIpcHandlers(): void {
   let lichReadyDetected = false
   gameConn.on('log',          (l: string) => lichLog('[game] ' + l))
   gameConn.on('data',         (r: string) => {
-    mainWindow?.webContents.send('game:data', r)
+    send('game:data', r)
     if (!lichReadyDetected) {
       // <app char="Name"> appears in the game stream once Lich has connected
       // to the game server and parsed the character name from the initial XML.
@@ -154,7 +162,7 @@ function setupIpcHandlers(): void {
       }
     }
   })
-  gameConn.on('connected',    ()          => { lichLog('[game] Connected'); mainWindow?.webContents.send('game:connected') })
-  gameConn.on('disconnected', ()          => mainWindow?.webContents.send('game:disconnected'))
-  gameConn.on('error',        (e: string) => { lichLog('[game] Error: ' + e); mainWindow?.webContents.send('game:error', e) })
+  gameConn.on('connected',    ()          => { lichLog('[game] Connected'); send('game:connected') })
+  gameConn.on('disconnected', ()          => send('game:disconnected'))
+  gameConn.on('error',        (e: string) => { lichLog('[game] Error: ' + e); send('game:error', e) })
 }

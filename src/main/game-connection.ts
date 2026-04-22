@@ -5,14 +5,13 @@ export class GameConnection extends EventEmitter {
   private socket: Socket | null = null
   private buffer = ''
 
-  /** Direct connection to game server: send KEY then /FE:STORM */
   connectDirect(host: string, port: number, key: string): void {
     if (this.socket) this.disconnect()
     this.socket = new Socket()
     this.socket.setEncoding('latin1')
     this.socket.on('connect', () => {
       this.socket!.write(key + '\n', 'latin1')
-      this.socket!.write('/FE:STORM\n', 'latin1')
+      this.socket!.write('/FE:STORMFRONT\n', 'latin1')
       this.emit('connected')
     })
     this.socket.on('data',  (c: string) => { this.buffer += c; this.flush() })
@@ -21,14 +20,6 @@ export class GameConnection extends EventEmitter {
     this.socket.connect(port, host)
   }
 
-  /**
-   * Connect to Lich's --frostbite proxy port (4901) and send the SGE key.
-   * This is exactly how Frostbite connects to Lich:
-   *   1. TCP connect to 127.0.0.1:4901
-   *   2. Send KEY + newline  (Lich forwards this to the game server)
-   *   3. Game stream flows back
-   * Retries on ECONNREFUSED until Lich opens its port.
-   */
   connectWithKey(host: string, port: number, key: string): void {
     if (this.socket) this.disconnect()
     this.emit('log', 'Attempting to connect to ' + host + ':' + port + '...')
@@ -59,7 +50,6 @@ export class GameConnection extends EventEmitter {
     s.connect(port, host)
   }
 
-  /** Connect to Lich proxy without sending a key (for already-authenticated sessions) */
   connect(host: string, port: number): void {
     if (this.socket) this.disconnect()
     this.emit('log', 'Attempting to connect to ' + host + ':' + port + '...')
@@ -103,11 +93,79 @@ export class GameConnection extends EventEmitter {
     this.socket.write(data.endsWith('\n') ? data : data + '\n', 'latin1')
   }
 
+  /**
+   * Emit complete logical chunks to the renderer.
+   *
+   * The game stream uses XML tags that can span multiple newlines, e.g.:
+   *   <component id='room exits'>Obvious paths: southwest\n, west\n.</component>
+   *
+   * Strategy: emit a chunk whenever we see a complete self-closing tag OR a
+   * close tag, OR a bare text line with no open tags. This ensures the parser
+   * always receives complete XML units, never half-open tags.
+   */
   private flush(): void {
-    const lines = this.buffer.split('\n')
-    this.buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      if (line.length > 0) this.emit('data', line + '\n')
+    // Split on newlines but reassemble lines into complete tag groups
+    // before emitting. A "complete unit" is either:
+    //   1. A line with no open tags (all opened tags are also closed)
+    //   2. Everything up to and including a closing tag that was opened earlier
+    //
+    // Simple heuristic that works for the DR stream: accumulate lines until
+    // the open-tag count equals the close-tag count, then emit.
+
+    let pos = 0
+    const buf = this.buffer
+
+    while (pos < buf.length) {
+      // Find next newline
+      const nl = buf.indexOf('\n', pos)
+      if (nl === -1) break  // no complete line yet — wait for more data
+
+      const line = buf.slice(pos, nl)
+      pos = nl + 1
+
+      // Check if this line has unmatched open tags
+      // Count self-closing first, then subtract from opens
+      const selfClose = (line.match(/<[a-zA-Z][^>]*\/>/g) ?? []).length
+      const closes    = (line.match(/<\/[a-zA-Z]/g) ?? []).length
+      const allOpens  = (line.match(/<[a-zA-Z][^>]*>/g) ?? []).length
+      const opens     = allOpens - selfClose
+
+      if (opens > closes) {
+        // Tag opened but not closed — accumulate until we find the close
+        let accumulated = line
+        let found = false
+        while (pos < buf.length) {
+          const nl2 = buf.indexOf('\n', pos)
+          if (nl2 === -1) {
+            // Not complete yet — put everything back and wait
+            this.buffer = accumulated + buf.slice(pos)
+            return
+          }
+          const nextLine = buf.slice(pos, nl2)
+          pos = nl2 + 1
+          accumulated += ' ' + nextLine.trim()  // join with space, trim leading whitespace
+
+          const s2 = (accumulated.match(/<[a-zA-Z][^>]*\/>/g) ?? []).length
+          const c2 = (accumulated.match(/<\/[a-zA-Z]/g) ?? []).length
+          const a2 = (accumulated.match(/<[a-zA-Z][^>]*>/g) ?? []).length
+          if (a2 - s2 <= c2) {
+            // Balanced — emit and continue
+            if (accumulated.trim()) this.emit('data', accumulated + '\n')
+            found = true
+            break
+          }
+        }
+        if (!found) {
+          // Still waiting for close tag — put back accumulated + rest
+          this.buffer = accumulated + buf.slice(pos)
+          return
+        }
+      } else {
+        // Complete line — emit directly
+        if (line.trim()) this.emit('data', line + '\n')
+      }
     }
+
+    this.buffer = buf.slice(pos)
   }
 }
