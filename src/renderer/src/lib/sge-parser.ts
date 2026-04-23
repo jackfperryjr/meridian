@@ -10,7 +10,7 @@
  *   <d cmd='go north'>north</d>   — clickable link
  */
 
-export type StreamId = 'main' | 'exp' | 'combat' | 'atmo' | 'inv' | 'familiar' | 'speech'
+export type StreamId = 'main' | 'exp' | 'combat' | 'atmo' | 'inv' | 'familiar' | 'speech' | 'lich'
 
 export interface TextStyle {
   bold?:   boolean
@@ -44,7 +44,9 @@ let _stream:     StreamId = 'main'
 let _inRoomDesc  = false
 let _inRoomName  = false
 let _inExits     = false
-let _suppressComp = false  // swallow room objs/players components
+let _suppressComp    = false  // swallow room objs/players components
+let _suppressExits   = false  // suppress plain-text exits after XML exits parsed
+let _exitsBuf: string | null = null  // accumulate plain-text "Obvious paths:" across lines
 let _inExpSkill  = ''    // skill name when inside <component id='exp X'>
 let _roomDescBuf = ''
 let _roomExitBuf = ''
@@ -77,7 +79,9 @@ export function parseLine(raw: string): GameEvent[] {
     const s  = forcePreset ? [{ preset: forcePreset }] : [...styles]
     const ls = links.length > 0 ? [...links] : undefined
     links = []
-    // Route to correct stream
+    // Suppress output when inside special components
+    if (_inExpSkill)  return  // exp data — only expSkill event matters
+    if (_suppressComp) return // room objs/players — swallowed
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return }
     if (_inExits)    { _roomExitBuf += ' ' + text; return }
     events.push({ type: 'text', text, styles: s, stream: _stream, links: ls })
@@ -89,7 +93,72 @@ export function parseLine(raw: string): GameEvent[] {
     if (!text || text === '>') return events
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return events }
     if (_inExits)    { _roomExitBuf += ' ' + text; return events }
-    events.push({ type: 'text', text, styles: [], stream: _stream })
+    // Suppress duplicate plain-text exits (DR sends exits both as XML component and plain text)
+    if (_suppressExits && /^obvious\s+paths?/i.test(text)) {
+      _suppressExits = false
+      return events  // already showed these as clickable links
+    }
+    _suppressExits = false
+
+    // Accumulate multi-line plain-text exits into one line
+    // DR sends: "Obvious paths:\nsouthwest,\nwest." as 3 separate parseLine calls
+    if (_exitsBuf !== null) {
+      // We're mid-accumulation — append this line
+      const trimmed = text.replace(/^[,\s]+/, '').trim()
+      if (trimmed) _exitsBuf += (_exitsBuf.endsWith(':') ? ' ' : ', ') + trimmed.replace(/\.$/, '')
+      // Done when line ends with "." or has no trailing comma
+      if (text.trim().endsWith('.') || !text.trim().endsWith(',')) {
+        const joined = _exitsBuf
+        _exitsBuf = null
+        const DIRS = new Set(['north','south','east','west','northeast','northwest',
+          'southeast','southwest','up','down','out','in','ne','nw','se','sw','n','s','e','w'])
+        const pathPart = joined.replace(/obvious\s+(?:paths?|exits?)\s*:?\s*/i, '')
+        const dirs = pathPart.replace(/[.,]/g, ' ').split(/\s+/)
+          .map(d => d.trim().toLowerCase()).filter(d => DIRS.has(d))
+        const exitLinks = dirs.map(d => ({ text: d, cmd: d }))
+        events.push({
+          type: 'text', text: joined,
+          styles: [{ preset: 'roomexits' }], stream: 'main' as StreamId,
+          links: exitLinks.length > 0 ? exitLinks : undefined
+        })
+        if (dirs.length > 0) events.push({ type: 'roomExits', exits: dirs })
+      }
+      return events
+    }
+    if (/^obvious\s+paths?/i.test(text)) {
+      // Start accumulating — strip trailing period, will join continuations
+      _exitsBuf = text.replace(/\.$/, '').trim()
+      // If already complete (ends with . or contains directions after colon on same line)
+      const DIRS = new Set(['north','south','east','west','northeast','northwest',
+        'southeast','southwest','up','down','out','in','ne','nw','se','sw','n','s','e','w'])
+      const pathPart = _exitsBuf.replace(/obvious\s+(?:paths?|exits?)\s*:?\s*/i, '')
+      const dirs = pathPart.replace(/[.,]/g, ' ').split(/\s+/)
+        .map(d => d.trim().toLowerCase()).filter(d => DIRS.has(d))
+      if (dirs.length > 0 && !text.trim().endsWith(',')) {
+        // Complete on one line
+        const joined = _exitsBuf
+        _exitsBuf = null
+        const exitLinks = dirs.map(d => ({ text: d, cmd: d }))
+        events.push({
+          type: 'text', text: joined,
+          styles: [{ preset: 'roomexits' }], stream: 'main' as StreamId,
+          links: exitLinks.length > 0 ? exitLinks : undefined
+        })
+        events.push({ type: 'roomExits', exits: dirs })
+      }
+      // else keep buffering
+      return events
+    }
+
+    // Lich script output — route to lich stream so it can be styled/suppressed
+    const lichOutput = (
+      /^--- Lich[: ]/.test(text) ||
+      /^\[\w[\w-]*:/.test(text) ||           // [scriptname: ...]
+      /^\[lich\d*:/.test(text) ||             // [lich5-update: ...]
+      /^[+|][-=+|\s]/.test(text)               // ASCII table lines: +---+  | col |  | Title |
+    )
+    const effectiveStream = lichOutput ? 'lich' as StreamId : _stream
+    events.push({ type: 'text', text, styles: [], stream: effectiveStream })
     return events
   }
 
@@ -214,6 +283,7 @@ export function parseLine(raw: string): GameEvent[] {
               ? exitLinks.map(l => l.cmd.replace('go ', ''))
               : textExits
             events.push({ type: 'roomExits', exits: allExits })
+            _suppressExits = true  // suppress duplicate plain-text exits
             // Build synthetic links from text exits if no <d> tags present
             const finalLinks = exitLinks.length > 0
               ? exitLinks

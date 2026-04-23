@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Provider, useSetAtom } from 'jotai'
+import { Provider, useSetAtom, useAtomValue } from 'jotai'
 import { useGameConnection }  from './hooks/useGameConnection'
 import { GameOutput, setHighlights, setSendFn } from './components/game/GameOutput'
 import { CommandInput, StatusBar } from './components/game'
@@ -13,7 +13,7 @@ import {
   ExperiencePanel, ConversationPanel, InventoryPanel,
   CombatPanel, AtmoPanel,
 } from './components/layout/PanelContent'
-import { echoCommandAtom }    from './store/game'
+import { echoCommandAtom, lichMsgAtom } from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
 import './styles/global.css'
 
@@ -95,11 +95,23 @@ function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
 
   const [lichStatus,     setLichStatus]     = useState<'stopped'|'starting'|'ready'|'error'>('stopped')
   const [lichLog,        setLichLog]        = useState<string[]>([])
+  const lichMsgs = useAtomValue(lichMsgAtom)
   const [showLog,        setShowLog]        = useState(false)
   const [showSettings,   setShowSettings]   = useState(false)
   const [showHighlights, setShowHighlights] = useState(false)
   const [sidebarWidth,   setSidebarWidth]   = useState<number | null>(null)
   const mainAreaRef = useRef<HTMLDivElement>(null)
+
+  // Merge in-game Lich script messages into the log drawer
+  useEffect(() => {
+    if (lichMsgs.length > 0) {
+      const last = lichMsgs[lichMsgs.length - 1]
+      setLichLog(prev => {
+        if (prev.length > 0 && prev[prev.length - 1] === last) return prev
+        return [...prev.slice(-199), last]
+      })
+    }
+  }, [lichMsgs])
 
   // Load settings + apply theme/font/highlights on mount
   useEffect(() => {
