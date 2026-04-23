@@ -90,7 +90,7 @@ jobs:
         run: npm ci
 
       - name: Build and package
-        run: npm run package
+        run: npx electron-vite build && npx electron-builder --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
