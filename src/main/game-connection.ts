@@ -134,10 +134,14 @@ export class GameConnection extends EventEmitter {
       }
 
       if (depth <= 0) {
-        // Balanced — emit
-        if (accum.trim()) this.emit('data', accum + '\n')
-        accum = ''
-        depth = 0
+        // If the accumulated line ends with a comma, it's a split list — keep going
+        if (accum.trimEnd().endsWith(',')) {
+          // don't emit yet, keep accumulating
+        } else {
+          if (accum.trim()) this.emit('data', accum + '\n')
+          accum = ''
+          depth = 0
+        }
       }
     }
 

@@ -29,6 +29,7 @@ export const expLinesAtom     = atom<OutputLine[]>([])
 export const combatLinesAtom  = atom<OutputLine[]>([])
 export const atmoLinesAtom    = atom<OutputLine[]>([])
 export const convLinesAtom    = atom<OutputLine[]>([])
+export const lichMsgAtom      = atom<string[]>([])
 
 // ── Vitals ────────────────────────────────────────────────────────────────────
 export interface VitalState { value: number; max: number }
@@ -97,13 +98,16 @@ export const dispatchGameEventAtom = atom(
           case 'inv': {
             const t = event.text
             if (t === '__clear_inv__') {
-              set(inventoryLinesAtom, [])  // clear before fresh dump
+              set(inventoryLinesAtom, [])
             } else {
-              const lines = get(inventoryLinesAtom)
-              set(inventoryLinesAtom, [...lines.slice(-299), t])
+              set(inventoryLinesAtom, [...get(inventoryLinesAtom).slice(-299), t])
             }
-            break  // don't fall to outputLinesAtom
+            break
           }
+          case 'lich':
+            // Lich script output — append to lich log, don't show in game panel
+            set(lichMsgAtom, [...get(lichMsgAtom).slice(-499), event.text])
+            break
           case 'combat':
             set(combatLinesAtom, [...get(combatLinesAtom).slice(-499), line])
             set(outputLinesAtom, [...get(outputLinesAtom).slice(-4999), line])

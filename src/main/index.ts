@@ -33,6 +33,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400, height: 900, minWidth: 800, minHeight: 600,
     backgroundColor: '#111113',
+    icon: join(app.getAppPath(), 'resources', 'icon.png'),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
