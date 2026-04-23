@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import { join } from 'path'
 import { LichManager, LichConnection } from './lich-manager'
 import { GameConnection } from './game-connection'
@@ -56,6 +56,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null)  // hide default menu bar
   createWindow()
   setupIpcHandlers()
   app.on('activate', () => {

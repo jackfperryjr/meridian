@@ -48,6 +48,9 @@ export const roomAtom = atom<RoomState>({ name: '', description: '', exits: [] }
 // ── Inventory ─────────────────────────────────────────────────────────────────
 export const inventoryLinesAtom = atom<string[]>([])
 
+// ── Hands ────────────────────────────────────────────────────────────────────
+export const handsAtom = atom<{ left: string; right: string }>({ left: '', right: '' })
+
 // ── Indicators ────────────────────────────────────────────────────────────────
 export const indicatorsAtom = atom<Record<string, boolean>>({})
 
@@ -91,6 +94,16 @@ export const dispatchGameEventAtom = atom(
             // Exp text lines go to expLinesAtom; actual skill data comes via expSkill events
             set(expLinesAtom, [...get(expLinesAtom).slice(-499), line])
             break
+          case 'inv': {
+            const t = event.text
+            if (t === '__clear_inv__') {
+              set(inventoryLinesAtom, [])  // clear before fresh dump
+            } else {
+              const lines = get(inventoryLinesAtom)
+              set(inventoryLinesAtom, [...lines.slice(-299), t])
+            }
+            break  // don't fall to outputLinesAtom
+          }
           case 'combat':
             set(combatLinesAtom, [...get(combatLinesAtom).slice(-499), line])
             set(outputLinesAtom, [...get(outputLinesAtom).slice(-4999), line])
@@ -106,6 +119,9 @@ export const dispatchGameEventAtom = atom(
           default:
             set(outputLinesAtom, [...get(outputLinesAtom).slice(-4999), line])
         }
+        // Route hand content
+        if (event.styles.some(s => s.preset === 'left'))  set(handsAtom, { ...get(handsAtom), left:  event.text.trim() })
+        if (event.styles.some(s => s.preset === 'right')) set(handsAtom, { ...get(handsAtom), right: event.text.trim() })
         // Also check for speech/whisper/thought styles and route to conv
         if (event.styles.some(s => ['speech','whisper','thought'].includes(s.preset ?? ''))) {
           set(convLinesAtom, [...get(convLinesAtom).slice(-199), line])

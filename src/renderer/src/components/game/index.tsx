@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAtomValue } from 'jotai'
-import { vitalsAtom, roomAtom, roundtimeSecondsAtom } from '../../store/game'
+import { vitalsAtom, roomAtom, roundtimeSecondsAtom, handsAtom } from '../../store/game'
 export type { ConnectionStatus } from '../../store/game'
 import type { ConnectionStatus } from '../../store/game'
 
@@ -56,7 +56,22 @@ export function CommandInput({ onSend, onEcho }: {
   )
 }
 
-// ── StatusBar ────────────────────────────────────────────────────────────────
+// ── Hand display ─────────────────────────────────────────────────────────────
+function HandDisplay() {
+  const hands = useAtomValue(handsAtom)
+  const empty = <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>empty</span>
+  return (
+    <div className="hand-display">
+      <span className="hand-label">R:</span>
+      <span className="hand-item">{hands.right ? hands.right : empty}</span>
+      <span className="hand-sep">|</span>
+      <span className="hand-label">L:</span>
+      <span className="hand-item">{hands.left ? hands.left : empty}</span>
+    </div>
+  )
+}
+
+// ── StatusBar ─────────────────────────────────────────────────────────────────
 type LichStatus = 'stopped' | 'starting' | 'ready' | 'error'
 
 export function StatusBar({
@@ -114,6 +129,7 @@ export function StatusBar({
         </button>
       )}
 
+      {status === 'connected' && <HandDisplay />}
       <div className="status-bar-spacer" />
       {status === 'connected' && (
         <button className="btn-connect" onClick={onDisconnect}>Disconnect</button>

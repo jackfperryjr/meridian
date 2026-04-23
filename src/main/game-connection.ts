@@ -104,68 +104,44 @@ export class GameConnection extends EventEmitter {
    * always receives complete XML units, never half-open tags.
    */
   private flush(): void {
-    // Split on newlines but reassemble lines into complete tag groups
-    // before emitting. A "complete unit" is either:
-    //   1. A line with no open tags (all opened tags are also closed)
-    //   2. Everything up to and including a closing tag that was opened earlier
-    //
-    // Simple heuristic that works for the DR stream: accumulate lines until
-    // the open-tag count equals the close-tag count, then emit.
+    // Accumulate lines until all opened tags are closed, then emit as one chunk.
+    // This handles multi-line XML like:
+    //   <component id='room exits'>northeast\nnorthwest</component>
+    // Special case: self-closing tags like <pushStream id='exp'/> are complete on one line.
 
-    let pos = 0
+    let pos   = 0
     const buf = this.buffer
+    let depth = 0     // net open tag depth across accumulated lines
+    let accum = ''
 
     while (pos < buf.length) {
-      // Find next newline
       const nl = buf.indexOf('\n', pos)
-      if (nl === -1) break  // no complete line yet — wait for more data
+      if (nl === -1) break  // incomplete line — wait
 
       const line = buf.slice(pos, nl)
       pos = nl + 1
 
-      // Check if this line has unmatched open tags
-      // Count self-closing first, then subtract from opens
+      // Count tag depth change on this line
       const selfClose = (line.match(/<[a-zA-Z][^>]*\/>/g) ?? []).length
+      const opens     = (line.match(/<[a-zA-Z][^>]*>/g) ?? []).length - selfClose
       const closes    = (line.match(/<\/[a-zA-Z]/g) ?? []).length
-      const allOpens  = (line.match(/<[a-zA-Z][^>]*>/g) ?? []).length
-      const opens     = allOpens - selfClose
+      depth += opens - closes
 
-      if (opens > closes) {
-        // Tag opened but not closed — accumulate until we find the close
-        let accumulated = line
-        let found = false
-        while (pos < buf.length) {
-          const nl2 = buf.indexOf('\n', pos)
-          if (nl2 === -1) {
-            // Not complete yet — put everything back and wait
-            this.buffer = accumulated + buf.slice(pos)
-            return
-          }
-          const nextLine = buf.slice(pos, nl2)
-          pos = nl2 + 1
-          accumulated += ' ' + nextLine.trim()  // join with space, trim leading whitespace
-
-          const s2 = (accumulated.match(/<[a-zA-Z][^>]*\/>/g) ?? []).length
-          const c2 = (accumulated.match(/<\/[a-zA-Z]/g) ?? []).length
-          const a2 = (accumulated.match(/<[a-zA-Z][^>]*>/g) ?? []).length
-          if (a2 - s2 <= c2) {
-            // Balanced — emit and continue
-            if (accumulated.trim()) this.emit('data', accumulated + '\n')
-            found = true
-            break
-          }
-        }
-        if (!found) {
-          // Still waiting for close tag — put back accumulated + rest
-          this.buffer = accumulated + buf.slice(pos)
-          return
-        }
+      if (accum) {
+        accum += ' ' + line.trim()
       } else {
-        // Complete line — emit directly
-        if (line.trim()) this.emit('data', line + '\n')
+        accum = line
+      }
+
+      if (depth <= 0) {
+        // Balanced — emit
+        if (accum.trim()) this.emit('data', accum + '\n')
+        accum = ''
+        depth = 0
       }
     }
 
-    this.buffer = buf.slice(pos)
+    // Put back any incomplete accumulation
+    this.buffer = accum ? accum + buf.slice(pos) : buf.slice(pos)
   }
 }

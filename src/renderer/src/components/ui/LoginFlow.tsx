@@ -28,7 +28,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 function Back({ onClick }: { onClick: () => void }) {
-  return <button className="login-back" onClick={onClick}>← Back</button>
+  return <button className="login-btn-secondary" onClick={onClick}>← Back</button>
 }
 
 // ─── Screen 1: Saved accounts ─────────────────────────────────────────────────
@@ -51,10 +51,8 @@ function AccountListScreen({ accounts, onSelect, onAddNew, onSettings }: {
         </button>
       ))}
     </div>
-    <div className="login-row">
-      <button className="login-btn-secondary" onClick={onAddNew}>+ Add account</button>
-      <button className="login-btn-icon" onClick={onSettings} title="Settings">⚙</button>
-    </div>
+    <button className="login-btn-secondary" onClick={onAddNew}>+ Add account</button>
+    <button className="login-btn-secondary" onClick={onSettings}>⚙ Settings</button>
   </>
 }
 
@@ -154,7 +152,7 @@ function CharacterSelectScreen({ characters, lastCharId, onSelect, onBack, error
     <div className="login-accounts-list">
       {characters.map(c => (
         <button key={c.id}
-          className={`login-account-item ${c.id === lastCharId ? 'login-account-item--last' : ''}`}
+          className="login-account-btn"
           onClick={() => !loading && onSelect(c)} disabled={loading}>
           <div className="login-account-info">
             <span className="login-account-name">{c.name}</span>
@@ -175,25 +173,13 @@ function ConnectingScreen({ characterName, logLines, error, onBack }: {
   error:         string
   onBack:        () => void
 }) {
-  const logRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
-  }, [logLines])
-
   return <>
     <div className="login-screen-title">
       {error ? 'Connection failed' : `Entering as ${characterName}…`}
     </div>
     {!error && <div className="login-connecting-dots"><span /><span /><span /></div>}
+    {!error && <p className="login-hint">Connecting to DragonRealms…</p>}
     {error && <div className="login-error">{error}</div>}
-    {logLines.length > 0 && (
-      <div className="login-log" ref={logRef}>
-        {logLines.map((l, i) => (
-          <div key={i} className={l.startsWith('[error]') ? 'login-log-error' : ''}>{l}</div>
-        ))}
-      </div>
-    )}
-    {!error && logLines.length === 0 && <p className="login-hint">Connecting to DragonRealms…</p>}
     {error && <button className="login-btn-secondary" onClick={onBack}>← Back</button>}
   </>
 }

@@ -44,6 +44,7 @@ let _stream:     StreamId = 'main'
 let _inRoomDesc  = false
 let _inRoomName  = false
 let _inExits     = false
+let _suppressComp = false  // swallow room objs/players components
 let _inExpSkill  = ''    // skill name when inside <component id='exp X'>
 let _roomDescBuf = ''
 let _roomExitBuf = ''
@@ -148,6 +149,8 @@ export function parseLine(raw: string): GameEvent[] {
           _roomExitBuf = ''
           styles = [{ preset: 'roomexits' }]
         } else if (id.startsWith('room')) {
+          // room objs, room players — swallow, don't emit to game panel
+          _suppressComp = true
           styles = []
         } else {
           styles = []
@@ -182,14 +185,17 @@ export function parseLine(raw: string): GameEvent[] {
           }
           _inExpSkill = ''
           styles = []
+        } else if (_suppressComp) {
+          buf = ''
+          _suppressComp = false
+          styles = []
         } else if (_inRoomDesc) {
-          const desc = (_roomDescBuf + ' ' + buf).replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim()
+          const raw3 = (_roomDescBuf + ' ' + buf).replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim()
           buf = ''
           _roomDescBuf = ''
           _inRoomDesc  = false
-          if (desc) {
-            events.push({ type: 'roomDesc', description: desc })
-            // Don't emit as text — room panel handles display
+          if (raw3) {
+            events.push({ type: 'roomDesc', description: raw3 })
           }
           styles = []
         } else if (_inExits) {
@@ -227,6 +233,13 @@ export function parseLine(raw: string): GameEvent[] {
       }
 
       // ── Stream switching ──────────────────────────────────────────────────
+      case 'clearstream':
+        flush()
+        // clearStream resets inv panel - emit special event handled in store
+        if ((attrs['id'] ?? '').toLowerCase() === 'inv') {
+          events.push({ type: 'text', text: '__clear_inv__', styles: [], stream: 'inv' })
+        }
+        break
       case 'pushstream': {
         flush()
         const id = (attrs['id'] ?? '').toLowerCase()
