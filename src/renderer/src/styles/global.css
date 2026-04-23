@@ -772,7 +772,7 @@ body {
 .settings-hint { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
 
 /* Theme picker */
-.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .theme-swatch {
   border: 1px solid; border-radius: var(--r-md); padding: 9px 12px;
   text-align: left; cursor: pointer;

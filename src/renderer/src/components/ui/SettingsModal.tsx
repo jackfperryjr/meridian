@@ -64,19 +64,25 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   key={t.id}
                   className={'theme-swatch' + (theme === t.id ? ' active' : '')}
                   style={{
-                    background: t.vars['--bg-shell'],
-                    color:      t.vars['--text-main'],
-                    borderColor: theme === t.id ? t.vars['--color-roomname'] : t.vars['--border'],
+                    background:  t.vars['--bg-panel'],
+                    borderColor: theme === t.id ? t.vars['--accent'] : t.vars['--border'],
+                    boxShadow:   theme === t.id ? `0 0 10px ${t.vars['--accent-glow']}` : 'none',
                   }}
                   onClick={() => setTheme(t.id)}
                 >
+                  {/* Mini color strip */}
+                  <div style={{ display: 'flex', gap: 2, marginBottom: 5 }}>
+                    {['--health-color','--mana-color','--stamina-color','--accent','--color-roomname'].map(k => (
+                      <div key={k} style={{ flex:1, height:4, borderRadius:2, background: t.vars[k] }} />
+                    ))}
+                  </div>
                   <span className="theme-swatch-name" style={{ color: t.vars['--color-roomname'] }}>
                     {t.name}
                   </span>
-                  <span className="theme-swatch-preview">
-                    <span style={{ color: t.vars['--color-speech'] }}>speech </span>
-                    <span style={{ color: t.vars['--color-warning'] }}>warn </span>
-                    <span style={{ color: t.vars['--text-dim'] }}>dim</span>
+                  <span className="theme-swatch-preview" style={{ color: t.vars['--text-dim'] }}>
+                    <span style={{ color: t.vars['--color-speech'] }}>say </span>
+                    <span style={{ color: t.vars['--color-warning'] }}>!</span>
+                    <span style={{ color: t.vars['--color-bonus'] }}> ✓</span>
                   </span>
                 </button>
               ))}
