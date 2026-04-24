@@ -33,6 +33,7 @@
   "build": {
     "appId": "com.meridian.dragonrealms",
     "productName": "Meridian",
+    "icon": "resources/icon.png",
     "directories": {
       "output": "dist"
     },
