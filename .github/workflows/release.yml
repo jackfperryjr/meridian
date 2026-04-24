@@ -58,18 +58,12 @@ jobs:
 
           echo "tag=v${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
 
-      - name: Bump package.json and push tag
+      - name: Push tag
         run: |
-          TAG="${{ steps.new_tag.outputs.tag }}"
-          VERSION="${TAG#v}"
-          npm version "$VERSION" --no-git-tag-version
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "chore: bump version to ${TAG} [skip ci]"
-          git push
-          git tag "$TAG"
-          git push origin "$TAG"
+          git tag ${{ steps.new_tag.outputs.tag }}
+          git push origin ${{ steps.new_tag.outputs.tag }}
 
   build:
     needs: tag
@@ -86,8 +80,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.tag.outputs.new_tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -96,6 +88,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Stamp version
+        run: npm version ${{ needs.tag.outputs.new_tag }} --no-git-tag-version
 
       - name: Build and package
         run: npx electron-vite build && npx electron-builder --publish never
