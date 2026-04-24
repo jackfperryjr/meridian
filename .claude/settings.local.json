@@ -14,7 +14,8 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:api.github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(node -e \"const Jimp = require\\('jimp'\\); Jimp.read\\('resources/icon.png'\\).then\\(img => console.log\\(img.getWidth\\(\\) + 'x' + img.getHeight\\(\\)\\)\\)\")"
     ]
   }
 }
