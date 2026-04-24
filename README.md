@@ -1,88 +1,121 @@
-# Meridian
+<p align="center">
+  <img src="resources/icon.png" width="96" height="96" alt="Meridian" />
+</p>
 
-A modern DragonRealms front-end built with Electron, React, and TypeScript.
-
-## Screenshots
+<h1 align="center">Meridian</h1>
 
 <p align="center">
-  <img src="resources/Screenshot 2026-04-24 083909.png" alt="Login screen" width="48%">
-  &nbsp;
-  <img src="resources/Screenshot 2026-04-24 083954.png" alt="In-game interface" width="48%">
+  A modern, lightweight client for <a href="https://www.play.net/dr/">DragonRealms</a>
 </p>
+
+<p align="center">
+  <a href="https://github.com/jackfperryjr/meridian/releases/latest">
+    <img src="https://img.shields.io/github/v/release/jackfperryjr/meridian?style=flat-square&color=4a90d9&label=latest" alt="Latest Release" />
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-4a90d9?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/built%20with-Electron%20%2B%20React-764abc?style=flat-square" alt="Built with Electron + React" />
+</p>
+
+<br />
+
+<p align="center">
+  <img src="resources/screenshot-login.png" alt="Meridian login window" width="780" />
+</p>
+
+---
 
 ## Features
 
-- **Native SGE authentication** — logs in directly via Simutronics' eaccess protocol, no launcher required
-- **Lich integration** — optionally runs Lich as the game broker, enabling `;script` commands
-- **Resizable panel system** — drag-to-resize sidebar panels for Room, Vitals, Experience, Spells, Combat, Conversation, and Inventory
-- **Highlight rules** — configurable pattern-based text highlighting with color and bold options
-- **Theme system** — multiple built-in themes including Meridian (default), Bloodstone, Thornwood, Parchment, Ironforge, and Final Fantasy IV
-- **Command history** — arrow keys cycle through previously sent commands
-- **Command echo** — sent commands appear inline in the output stream
-- **Settings** — configurable font family, font size, theme, and Lich path
+- **Live vitals** — Health, mana, stamina, and spirit bars update in real time from the game stream
+- **Smart panels** — Room info, experience tracker, active spells, combat log, conversation history, inventory, and atmosphere — all collapsible, resizable, and individually toggleable
+- **Clickable exits** — Room exits are links; click to move
+- **Command history** — Arrow keys recall previous commands
+- **Text highlights** — Color-code any word, phrase, or regex pattern in the output
+- **Multiple themes** — Choose from several dark color themes; changes apply instantly
+- **Adjustable display** — Pick your font family and size
+- **Lich integration** — Optionally launch [Lich5](https://lichproject.org/) scripts alongside your session
+- **Auto-update** — Checks for new releases on startup and prompts to install
 
-## Requirements
+<p align="center">
+  <img src="resources/screenshot-game.png" alt="Meridian game window" width="780" />
+</p>
 
-- [Node.js](https://nodejs.org/) 18+
-- [Lich 5](https://github.com/elanthia-online/lich-5) *(optional, for scripting)*
+---
+
+## Download
+
+Grab the latest installer from the [Releases page](https://github.com/jackfperryjr/meridian/releases/latest).
+
+| Platform | File |
+|----------|------|
+| Windows  | `Meridian-Setup-x.x.x.exe` |
+| macOS    | `Meridian-x.x.x.dmg` |
+| Linux    | `Meridian-x.x.x.AppImage` |
+
+> **Windows note:** You may see a SmartScreen prompt on first launch. Click **More info → Run anyway**. This is expected for apps without a paid code-signing certificate.
+
+---
 
 ## Getting Started
 
+1. Launch Meridian and sign in with your Simutronics account credentials.
+2. Select your game server and character.
+3. Play — panels populate automatically as game data arrives.
+
+For a full feature walkthrough, see the **[Player Guide](GUIDE.md)**.
+
+---
+
+## Lich Scripting
+
+Lich is optional — Meridian works as a standalone client without it.
+
+1. Install Ruby and [Lich5](https://github.com/elanthia-online/lich-5) via the Ruby4Lich5 installer.
+2. In Meridian's **⚙ Settings**, set the **Lich path** to your `lich.rbw` (e.g. `C:\Ruby4Lich5\Lich5\lich.rbw`).
+3. Log in normally — Meridian handles authentication and launches Lich automatically.
+
+Once connected with Lich active, `;commands` route through Lich's scripting engine.
+
+---
+
+## Development
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 20+
+- [Git](https://git-scm.com/)
+
+### Setup
+
 ```bash
+git clone https://github.com/jackfperryjr/meridian.git
+cd meridian
 npm install
 npm run dev
 ```
 
-## Lich Setup
-
-Lich is optional. Without it, Meridian connects directly to the game server.
-
-With Lich configured, Meridian launches Lich as the game broker and you get full `;script` support.
-
-1. Install [Lich 5](https://github.com/elanthia-online/lich-5) and Ruby via the Ruby4Lich5 installer
-2. In Meridian's Settings (⚙ in the status bar), set the **Lich path** to your `lich.rbw` (e.g. `C:\Ruby4Lich5\Lich5\lich.rbw`)
-3. Log in through Meridian as normal — it handles authentication and launches Lich automatically. Lich may take 1–2 minutes on first run while it downloads map data.
-
-Once connected with Lich active, `;commands` are routed to Lich's scripting engine.
-
-## Connection Modes
-
-**With Lich path configured:**
-Lich connects to the game server, Meridian connects to Lich's local proxy on port 11024. Full scripting support.
-
-**Without Lich path:**
-Meridian connects directly to `dr.simutronics.net` using the key from SGE auth. No scripting, but faster to connect.
-
-## Development
+### Build
 
 ```bash
-npm run dev      # Start with hot reload
-npm run build    # Build for production
-npm run preview  # Preview production build
-npm run package  # Build and package installers
+npm run build        # compile only
+npm run package      # compile + package installer
 ```
 
-Built with [electron-vite](https://electron-vite.org/), [React](https://react.dev/), [Jotai](https://jotai.org/), and TypeScript.
+Releases are built and published automatically via GitHub Actions when a new version tag is pushed.
 
-## Project Structure
+---
 
-```
-src/
-  main/           Electron main process
-    index.ts        IPC handlers, app lifecycle
-    sge-auth.ts     SGE eaccess authentication protocol
-    game-connection.ts  TCP connection to game server or Lich proxy
-    lich-manager.ts     Lich process management
-    settings-store.ts   Persistent settings (no passwords stored)
-  preload/        Context bridge (main ↔ renderer)
-  renderer/       React UI
-    components/
-      game/         Status bar, command input, game output
-      layout/       Resizable panel system and panel content
-      ui/           Login flow, settings modal, highlights modal
-    store/          Jotai atoms (game state)
-    lib/            SGE XML stream parser, theme definitions and application
-    hooks/          Game connection hook
-scripts/
-  make-icon.js    Regenerates resources/icon.png from the crystal SVG design
-```
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Shell | [Electron](https://www.electronjs.org/) 31 |
+| UI | [React](https://react.dev/) 18 + [Jotai](https://jotai.org/) |
+| Build | [electron-vite](https://electron-vite.org/) + [electron-builder](https://www.electron.build/) |
+| Protocol | Simutronics SGE / GSIV XML |
+
+---
+
+<p align="center">
+  Meridian is an unofficial community client &mdash; DragonRealms is a product of <a href="https://www.play.net">Simutronics Corp</a>.
+</p>
