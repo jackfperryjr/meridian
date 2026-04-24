@@ -382,6 +382,7 @@ body {
 .vital-stamina { background: linear-gradient(90deg, #302000, var(--stamina-color)); }
 .vital-spirit  { background: linear-gradient(90deg, #200640, var(--spirit-color)); }
 .vital-value { font-size: 14px; color: var(--text-muted); min-width: 30px; text-align: right; font-family: var(--font-ui); }
+.vital-enc-text { font-size: 14px; color: var(--text-muted); flex: 1; text-align: right; font-family: var(--font-ui); }
 
 /* Status indicators */
 .active-spell {
@@ -963,8 +964,6 @@ body {
 .col-resize-handle:hover { background: var(--accent-dim); border-left-color: var(--border-accent); }
 
 /* ── Vital numeric display ───────────────────────────────────────────────── */
-.vital-max { font-size: 12px; color: var(--text-dim); margin-left: 1px; font-family: var(--font-ui); }
-
 /* ── Combat panel ────────────────────────────────────────────────────────── */
 .combat-line {
   font-size: 14px; padding: 1px 0; line-height: 1.35;

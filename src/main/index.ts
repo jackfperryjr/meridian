@@ -45,6 +45,10 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  mainWindow.webContents.on('before-input-event', (_e, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12')
+      mainWindow?.webContents.toggleDevTools()
+  })
   mainWindow.webContents.on('did-finish-load', () => {
     for (const line of lichLogBuffer) {
       send('lich:log', line)
