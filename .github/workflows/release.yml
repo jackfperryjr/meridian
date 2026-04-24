@@ -58,12 +58,18 @@ jobs:
 
           echo "tag=v${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
 
-      - name: Push tag
+      - name: Bump package.json and push tag
         run: |
+          TAG="${{ steps.new_tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+          npm version "$VERSION" --no-git-tag-version
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ steps.new_tag.outputs.tag }}
-          git push origin ${{ steps.new_tag.outputs.tag }}
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${TAG} [skip ci]"
+          git push
+          git tag "$TAG"
+          git push origin "$TAG"
 
   build:
     needs: tag
@@ -80,6 +86,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.new_tag }}
 
       - uses: actions/setup-node@v4
         with:
