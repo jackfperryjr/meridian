@@ -1033,4 +1033,19 @@ body {
 }
 .hand-label { color: var(--accent); flex-shrink: 0; }
 .hand-item  { color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+
+/* ── Update banner ────────────────────────────────────────────────────────── */
+.update-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  background: var(--accent); color: #000;
+  font-size: 12px; font-family: var(--font-ui);
+  padding: 5px 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.update-banner-btn {
+  background: rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.3);
+  color: inherit; font-size: 11px; font-weight: bold;
+  padding: 2px 10px; border-radius: 3px; cursor: pointer;
+}
+.update-banner-btn:hover { background: rgba(0,0,0,0.35); }
 .hand-sep   { color: var(--border); flex-shrink: 0; }
