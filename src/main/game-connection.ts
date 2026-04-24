@@ -138,10 +138,7 @@ export class GameConnection extends EventEmitter {
         if (accum.trimEnd().endsWith(',')) {
           // don't emit yet, keep accumulating
         } else {
-          if (accum.trim()) {
-            if (process.env['ELECTRON_RENDERER_URL']) process.stdout.write('[RAW] ' + accum + '\n')
-            this.emit('data', accum + '\n')
-          }
+          if (accum.trim()) this.emit('data', accum + '\n')
           accum = ''
           depth = 0
         }

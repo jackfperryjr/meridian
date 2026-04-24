@@ -378,10 +378,10 @@ export function parseLine(raw: string): GameEvent[] {
         const id    = (attrs['id'] ?? '').toLowerCase()
         const value = parseInt(attrs['value'] ?? '0', 10)
         const VITAL_MAP: Record<string, VitalField> = {
-          health: 'health',  health2: 'health',
-          mana:   'mana',    mana2:   'mana',
-          stamina:'stamina', stamina2:'stamina', fatigue:'stamina', fatigue2:'stamina',
-          spirit: 'spirit',  spirit2: 'spirit',
+          health:        'health',  health2:        'health',
+          mana:          'mana',    mana2:          'mana',    concentration: 'mana',
+          stamina:       'stamina', stamina2:       'stamina', fatigue:       'stamina', fatigue2: 'stamina',
+          spirit:        'spirit',  spirit2:        'spirit',
         }
         const field = VITAL_MAP[id]
         if (field) events.push({ type: 'vitals', field, value, max: 100 })
