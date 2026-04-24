@@ -64,10 +64,6 @@ npm run package  # Build and package installers
 
 Built with [electron-vite](https://electron-vite.org/), [React](https://react.dev/), [Jotai](https://jotai.org/), and TypeScript.
 
-## Releases
-
-Merging to `main` triggers an automatic GitHub Actions workflow that tags a new version, builds installers for Windows (`.exe`), macOS (`.dmg`), and Linux (`.AppImage`), and publishes a GitHub Release. Bump the patch version by default; add a `release:minor` or `release:major` label to the PR to bump accordingly.
-
 ## Project Structure
 
 ```
