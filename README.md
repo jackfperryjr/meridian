@@ -40,9 +40,8 @@ Lich is optional. Without it, Meridian connects directly to the game server.
 With Lich configured, Meridian launches Lich as the game broker and you get full `;script` support.
 
 1. Install [Lich 5](https://github.com/elanthia-online/lich-5) and Ruby via the Ruby4Lich5 installer
-2. Open Lich's GTK UI (`ruby lich.rbw`), log in with your character, and check **"Save this info for quick game entry"** — this creates the `entry.yaml` credentials file Lich needs for headless login
-3. In Meridian's Settings (⚙ in the status bar), set the **Lich path** to your `lich.rbw` (e.g. `C:\Ruby4Lich5\Lich5\lich.rbw`)
-4. Log in — Meridian will launch Lich automatically. Lich may take 1–2 minutes on first run while it downloads map data.
+2. In Meridian's Settings (⚙ in the status bar), set the **Lich path** to your `lich.rbw` (e.g. `C:\Ruby4Lich5\Lich5\lich.rbw`)
+3. Log in through Meridian as normal — it handles authentication and launches Lich automatically. Lich may take 1–2 minutes on first run while it downloads map data.
 
 Once connected with Lich active, `;commands` are routed to Lich's scripting engine.
 
