@@ -33,3 +33,6 @@ Thumbs.db
 
 # Release builds
 release/
+
+# Claude Code local settings
+.claude/
