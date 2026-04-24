@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import { join } from 'path'
+import { autoUpdater } from 'electron-updater'
 import { LichManager, LichConnection } from './lich-manager'
 import { GameConnection } from './game-connection'
 import { SettingsStore } from './settings-store'
@@ -64,6 +65,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null)  // hide default menu bar
   createWindow()
   setupIpcHandlers()
+  setupUpdater()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
@@ -77,7 +79,18 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+function setupUpdater(): void {
+  autoUpdater.autoDownload        = true
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('update-available',  (info) => send('updater:available', info.version))
+  autoUpdater.on('update-downloaded', ()     => send('updater:ready'))
+
+  if (app.isPackaged) autoUpdater.checkForUpdates()
+}
+
 function setupIpcHandlers(): void {
+  ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
   ipcMain.handle('settings:get-all', () => settings.getAll())
   ipcMain.handle('settings:patch',   (_e, p) => settings.patch(p))
 

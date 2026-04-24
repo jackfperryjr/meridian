@@ -211,17 +211,40 @@ function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
   )
 }
 
+// ── Update banner ─────────────────────────────────────────────────────────────
+function UpdateBanner({ version, ready }: { version: string; ready: boolean }) {
+  return (
+    <div className="update-banner">
+      {ready
+        ? <>Update v{version} ready — <button className="update-banner-btn" onClick={() => window.dr.updater.install()}>Restart to install</button></>
+        : <>Downloading update v{version}…</>
+      }
+    </div>
+  )
+}
+
 function AppInner() {
-  const [inGame, setInGame] = useState(false)
+  const [inGame,         setInGame]         = useState(false)
+  const [updateVersion,  setUpdateVersion]  = useState('')
+  const [updateReady,    setUpdateReady]    = useState(false)
 
   useEffect(() => {
-    if (!inGame) return
-    // If we get disconnected while in game, show reconnect overlay
-    // (handled inside GameLayout via onReturnToLogin)
-  }, [inGame])
+    const unsubs = [
+      window.dr.updater.onAvailable((v: string) => setUpdateVersion(v)),
+      window.dr.updater.onReady(()              => setUpdateReady(true))
+    ]
+    return () => unsubs.forEach(fn => fn())
+  }, [])
 
-  if (!inGame) return <LoginFlow onEnterGame={() => setInGame(true)} />
-  return <GameLayout onReturnToLogin={() => setInGame(false)} />
+  return (
+    <>
+      {updateVersion && <UpdateBanner version={updateVersion} ready={updateReady} />}
+      {!inGame
+        ? <LoginFlow onEnterGame={() => setInGame(true)} />
+        : <GameLayout onReturnToLogin={() => setInGame(false)} />
+      }
+    </>
+  )
 }
 
 export default function App() {
