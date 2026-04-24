@@ -4,6 +4,7 @@ import {
   vitalsAtom, roomAtom, activeSpellAtom, roundtimeSecondsAtom,
   indicatorsAtom, outputLinesAtom, inventoryLinesAtom,
   expAtom, combatLinesAtom, atmoLinesAtom, convLinesAtom,
+  encumbranceTextAtom,
   type OutputLine
 } from '../../store/game'
 
@@ -55,7 +56,7 @@ function VitalRow({ label, value, max, cls }: {
       <div className="vital-track">
         <div className={`vital-fill ${cls}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="vital-value">{value}<span className="vital-max">/{max}</span></span>
+      <span className="vital-value">{pct}%</span>
     </div>
   )
 }
@@ -64,15 +65,19 @@ export function VitalsPanel() {
   const vitals     = useAtomValue(vitalsAtom)
   const rt         = useAtomValue(roundtimeSecondsAtom)
   const indicators = useAtomValue(indicatorsAtom)
+  const encText    = useAtomValue(encumbranceTextAtom)
   const active     = Object.entries(indicators).filter(([, v]) => v)
 
   return (
     <div>
-      <VitalRow label="HP"  {...vitals.health}      cls="vital-health"  />
-      <VitalRow label="MP"  {...vitals.mana}        cls="vital-mana"    />
-      <VitalRow label="SP"  {...vitals.stamina}     cls="vital-stamina" />
-      <VitalRow label="ST"  {...vitals.spirit}      cls="vital-spirit"  />
-      <VitalRow label="ENC" {...vitals.encumbrance} cls="vital-enc"     />
+      <VitalRow label="HP"  {...vitals.health}  cls="vital-health"  />
+      <VitalRow label="MP"  {...vitals.mana}    cls="vital-mana"    />
+      <VitalRow label="SP"  {...vitals.stamina} cls="vital-stamina" />
+      <VitalRow label="ST"  {...vitals.spirit}  cls="vital-spirit"  />
+      <div className="vital-row">
+        <span className="vital-label">ENC</span>
+        <span className="vital-enc-text">{encText}</span>
+      </div>
       {rt > 0 && <div className="roundtime-badge">RT: {rt}s</div>}
       {active.length > 0 && (
         <div className="indicators">

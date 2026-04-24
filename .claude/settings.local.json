@@ -10,7 +10,8 @@
       "Bash(node -e ' *)",
       "Bash(node -e \"const Jimp = require\\('jimp'\\); console.log\\(Object.keys\\(Jimp\\).slice\\(0,10\\)\\);\")",
       "Bash(node -e \"const j = require\\('jimp'\\); console.log\\(JSON.stringify\\(Object.keys\\(j.Jimp.prototype\\).slice\\(0,20\\)\\)\\); console.log\\('version:', require\\('./node_modules/jimp/package.json'\\).version\\);\")",
-      "Bash(node scripts/make-icon.js)"
+      "Bash(node scripts/make-icon.js)",
+      "WebSearch"
     ]
   }
 }
