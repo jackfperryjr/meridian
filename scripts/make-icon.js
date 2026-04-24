@@ -20,13 +20,13 @@ function pointInPoly(x, y, pts) {
 }
 
 async function main() {
-  const W = 256
-  const CX = 128, CY = 128, R = 120
+  const W = 512
+  const CX = 256, CY = 256, R = 240
 
-  // Crystal hex points matching SVG
+  // Crystal hex points — SVG coords scaled 2×
   const crystal = [
-    { x: 128, y: 44 }, { x: 172, y: 96 }, { x: 172, y: 178 },
-    { x: 128, y: 224 }, { x: 84, y: 178 }, { x: 84, y: 96 }
+    { x: 256, y:  88 }, { x: 344, y: 192 }, { x: 344, y: 356 },
+    { x: 256, y: 448 }, { x: 168, y: 356 }, { x: 168, y: 192 }
   ]
 
   const img = new Jimp(W, W, 0x00000000)
@@ -37,13 +37,13 @@ async function main() {
       if (d > R + 1) continue
 
       // Outer border ring — bright white-blue
-      if (d >= R - 3 && d <= R + 1) {
+      if (d >= R - 6 && d <= R + 1) {
         const alpha = d > R ? Math.round(255 * (R + 1 - d)) : 255
         img.setPixelColor(px(192, 208, 255, alpha), x, y)
         continue
       }
       // Inner separation ring — dark navy
-      if (d >= R - 7 && d < R - 3) {
+      if (d >= R - 14 && d < R - 6) {
         img.setPixelColor(px(14, 26, 56), x, y)
         continue
       }
@@ -54,32 +54,32 @@ async function main() {
       if (!pointInPoly(x, y, crystal)) continue
 
       // Crystal faces — shade by quadrant
-      const midX = 128, topY = 44, midY = 140, botY = 224
-      const inTopFace = y < midY && Math.abs(x - midX) < ((y - topY) / (midY - topY)) * 44 + 20
+      const midX = 256, topY = 88, midY = 280
+      const inTopFace = y < midY && Math.abs(x - midX) < ((y - topY) / (midY - topY)) * 88 + 40
 
-      if (y < 96) {
-        // Tip → shoulder: bright top-face, light blue to deep blue
-        const t = (y - 44) / 52
+      if (y < 192) {
+        // Tip → shoulder: bright top-face
+        const t = (y - 88) / 104
         img.setPixelColor(px(lerp(184, 80, t), lerp(220, 130, t), 255), x, y)
       } else if (inTopFace) {
         // Upper diamond face
-        const t = (y - 96) / (midY - 96)
+        const t = (y - 192) / (midY - 192)
         img.setPixelColor(px(lerp(60, 18, t), lerp(152, 68, t), lerp(232, 180, t)), x, y)
       } else if (x < midX && y < midY) {
-        img.setPixelColor(px(12, 38, 90), x, y)   // left upper — dark
+        img.setPixelColor(px(12, 38, 90), x, y)
       } else if (x >= midX && y < midY) {
-        img.setPixelColor(px(18, 58, 148), x, y)  // right upper — mid blue
+        img.setPixelColor(px(18, 58, 148), x, y)
       } else if (x < midX) {
-        img.setPixelColor(px(8, 26, 72), x, y)    // left lower — very dark
+        img.setPixelColor(px(8, 26, 72), x, y)
       } else {
-        img.setPixelColor(px(12, 38, 104), x, y)  // right lower — dark blue
+        img.setPixelColor(px(12, 38, 104), x, y)
       }
 
       // Specular highlight — top-left of crystal
-      const hx = x - 108, hy = y - 82
-      const hDist = Math.sqrt(hx * hx * 0.4 + hy * hy) // stretched ellipse
-      if (hDist < 12) {
-        const t = 1 - hDist / 12
+      const hx = x - 216, hy = y - 164
+      const hDist = Math.sqrt(hx * hx * 0.4 + hy * hy)
+      if (hDist < 24) {
+        const t = 1 - hDist / 24
         const s = Math.round(t * t * 220)
         const cur = Jimp.intToRGBA(img.getPixelColor(x, y))
         img.setPixelColor(px(
@@ -92,7 +92,7 @@ async function main() {
   }
 
   // Sparkle at crystal tip
-  const sparkle = [[128,30],[121,36],[135,36],[114,42],[142,42],[128,24]]
+  const sparkle = [[256,60],[242,72],[270,72],[228,84],[284,84],[256,48]]
   for (const [sx, sy] of sparkle) {
     const d2 = Math.sqrt((sx - CX) ** 2 + (sy - CY) ** 2)
     if (d2 < R) img.setPixelColor(px(210, 232, 255), sx, sy)
