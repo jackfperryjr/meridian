@@ -30,7 +30,7 @@ export type GameEvent =
   | { type: 'roomExits'; exits: string[] }
   | { type: 'expSkill';  name: string; rank: number; pct: number; mind: string }
   | { type: 'expMeta';   tdps?: number; favors?: number }
-  | { type: 'vitals';    field: VitalField; value: number; max: number }
+  | { type: 'vitals';    field: VitalField; value: number; max?: number; text?: string }
   | { type: 'indicator'; id: string; active: boolean }
   | { type: 'spell';     name: string }
   | { type: 'roundtime'; expires: number }
@@ -50,6 +50,7 @@ let _exitsBuf: string | null = null  // accumulate plain-text "Obvious paths:" a
 let _inExpSkill  = ''    // skill name when inside <component id='exp X'>
 let _roomDescBuf = ''
 let _roomExitBuf = ''
+let _compassDirs: string[] = []
 
 function decodeEntities(s: string): string {
   return s
@@ -150,6 +151,12 @@ export function parseLine(raw: string): GameEvent[] {
       return events
     }
 
+    // Encumbrance plain-text line: "  Encumbrance : Heavy Burden"
+    const encMatch = text.match(/^\s*Encumbrance\s*:\s*(.+)/i)
+    if (encMatch) {
+      events.push({ type: 'vitals', field: 'encumbrance', value: 0, text: encMatch[1].trim() })
+    }
+
     // Lich script output — route to lich stream so it can be styled/suppressed
     const lichOutput = (
       /^--- Lich[: ]/.test(text) ||
@@ -184,9 +191,10 @@ export function parseLine(raw: string): GameEvent[] {
 
     switch (tagName) {
 
-      // ── Clickable link: <d cmd='go north'>north</d> ──────────────────────
+      // ── Clickable link: <d cmd='go north'>north</d> or bare <d>north</d> ──
       case 'd': {
-        flush()
+        // No flush here — keeps the link inline with surrounding text so that
+        // lines like "Obvious paths: <d>sw</d>, <d>w</d>" stay on one line.
         inLink  = true
         linkCmd = attrs['cmd'] ?? ''
         linkBuf = ''
@@ -194,8 +202,9 @@ export function parseLine(raw: string): GameEvent[] {
       }
       case '/d': {
         if (inLink && linkBuf.trim()) {
-          links.push({ text: linkBuf.trim(), cmd: linkCmd })
-          buf += linkBuf  // also append to text buffer so it shows
+          const cmd = linkCmd || linkBuf.trim()
+          links.push({ text: linkBuf.trim(), cmd })
+          buf += linkBuf
         }
         inLink  = false
         linkCmd = ''
@@ -341,14 +350,63 @@ export function parseLine(raw: string): GameEvent[] {
       }
 
       // ── Vitals ────────────────────────────────────────────────────────────
-      case 'stat':
       case 'vitals': {
+        // <vitals health="83" mana="95" stamina="100" spirit="100" encumbrance="3"/>
         flush()
-        const field = ((attrs['name'] ?? attrs['type']) ?? '').toLowerCase() as VitalField
+        const validFields: VitalField[] = ['health','mana','stamina','spirit','encumbrance']
+        for (const f of validFields) {
+          if (attrs[f] !== undefined)
+            events.push({ type: 'vitals', field: f, value: parseInt(attrs[f], 10), max: undefined })
+        }
+        break
+      }
+      case 'stat': {
+        // <stat name="health" value="85" max="150"/> — includes real max
+        flush()
+        const field = ((attrs['name'] ?? attrs['id'] ?? attrs['type']) ?? '').toLowerCase() as VitalField
         const val   = parseInt(attrs['value'] ?? '0', 10)
-        const max   = parseInt(attrs['max']   ?? '100', 10)
+        const max   = attrs['max'] !== undefined ? parseInt(attrs['max'], 10) : undefined
+        const text  = attrs['text']
         const valid: VitalField[] = ['health','mana','stamina','spirit','encumbrance']
-        if (valid.includes(field)) events.push({ type: 'vitals', field, value: val, max: max || 100 })
+        if (valid.includes(field)) events.push({ type: 'vitals', field, value: val, max, text })
+        break
+      }
+
+      // ── Progress bars inside <dialogData> — carries HP/MP/etc as 0-100 pct ─
+      case 'progressbar': {
+        flush()
+        const id    = (attrs['id'] ?? '').toLowerCase()
+        const value = parseInt(attrs['value'] ?? '0', 10)
+        const VITAL_MAP: Record<string, VitalField> = {
+          health:        'health',  health2:        'health',
+          mana:          'mana',    mana2:          'mana',    concentration: 'mana',
+          stamina:       'stamina', stamina2:       'stamina', fatigue:       'stamina', fatigue2: 'stamina',
+          spirit:        'spirit',  spirit2:        'spirit',
+        }
+        const field = VITAL_MAP[id]
+        if (field) events.push({ type: 'vitals', field, value, max: 100 })
+        break
+      }
+
+      // ── Compass: <compass><dir value="sw"/>...</compass> ──────────────────
+      case 'compass':
+        flush()
+        _compassDirs = []
+        break
+      case 'dir':
+        if (attrs['value']) _compassDirs.push(attrs['value'].toLowerCase())
+        break
+      case '/compass': {
+        flush()
+        if (_compassDirs.length > 0) {
+          const EXPAND: Record<string, string> = {
+            n:'north', s:'south', e:'east', w:'west',
+            ne:'northeast', nw:'northwest', se:'southeast', sw:'southwest',
+            u:'up', d:'down', out:'out', in:'in',
+          }
+          events.push({ type: 'roomExits', exits: _compassDirs.map(d => EXPAND[d] ?? d) })
+        }
+        _compassDirs = []
         break
       }
 
