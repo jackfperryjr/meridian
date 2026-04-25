@@ -29,7 +29,8 @@ contextBridge.exposeInMainWorld('dr', {
     check:       ()                         => ipcRenderer.invoke('updater:check'),
     install:     ()                         => ipcRenderer.invoke('updater:install'),
     onAvailable: (cb: (v: string) => void) => { const h = (_e: unknown, v: string) => cb(v); ipcRenderer.on('updater:available', h); return () => ipcRenderer.removeListener('updater:available', h) },
-    onReady:     (cb: () => void)           => { ipcRenderer.on('updater:ready', cb); return () => ipcRenderer.removeListener('updater:ready', cb) }
+    onReady:     (cb: () => void)           => { ipcRenderer.on('updater:ready', cb); return () => ipcRenderer.removeListener('updater:ready', cb) },
+    onError:     (cb: (m: string) => void) => { const h = (_e: unknown, m: string) => cb(m); ipcRenderer.on('updater:error', h); return () => ipcRenderer.removeListener('updater:error', h) }
   },
   game: {
     getStatus:  ()          => ipcRenderer.invoke('game:get-status'),

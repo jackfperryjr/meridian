@@ -89,6 +89,8 @@ let updateDownloaded     = false
 function setupUpdater(): void {
   autoUpdater.autoDownload         = true
   autoUpdater.autoInstallOnAppQuit = true
+  // Skip electron-updater's own code-signature check — app is not signed
+  autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null)
 
   autoUpdater.on('update-available', (info) => {
     pendingUpdateVersion = info.version
@@ -97,6 +99,10 @@ function setupUpdater(): void {
   autoUpdater.on('update-downloaded', () => {
     updateDownloaded = true
     send('updater:ready')
+  })
+  autoUpdater.on('error', (err) => {
+    lichLog('[updater] Error: ' + err.message)
+    send('updater:error', err.message)
   })
 
   if (app.isPackaged) autoUpdater.checkForUpdates()

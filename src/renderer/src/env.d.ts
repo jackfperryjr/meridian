@@ -42,6 +42,7 @@ interface DrAPI {
     install:     () => Promise<void>
     onAvailable: (cb: (version: string) => void) => () => void
     onReady:     (cb: () => void)                => () => void
+    onError:     (cb: (message: string) => void) => () => void
   }
   game: {
     getStatus:      ()               => Promise<string>
