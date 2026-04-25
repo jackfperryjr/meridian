@@ -207,7 +207,12 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
 }
 
 // ── Update banner ─────────────────────────────────────────────────────────────
-function UpdateBanner({ version, ready }: { version: string; ready: boolean }) {
+function UpdateBanner({ version, ready, error }: { version: string; ready: boolean; error: string }) {
+  if (error) return (
+    <div className="update-banner update-banner-error">
+      Update failed: {error}
+    </div>
+  )
   return (
     <div className="update-banner">
       {ready
@@ -224,18 +229,20 @@ function AppInner() {
   const [showSettings,  setShowSettings]  = useState(false)
   const [updateVersion, setUpdateVersion] = useState('')
   const [updateReady,   setUpdateReady]   = useState(false)
+  const [updateError,   setUpdateError]   = useState('')
 
   useEffect(() => {
     const unsubs = [
-      window.dr.updater.onAvailable((v: string) => setUpdateVersion(v)),
-      window.dr.updater.onReady(()              => setUpdateReady(true))
+      window.dr.updater.onAvailable((v: string) => { setUpdateVersion(v); setUpdateError('') }),
+      window.dr.updater.onReady(()              => setUpdateReady(true)),
+      window.dr.updater.onError((msg: string)   => setUpdateError(msg))
     ]
     return () => unsubs.forEach(fn => fn())
   }, [])
 
   return (
     <>
-      {updateVersion && <UpdateBanner version={updateVersion} ready={updateReady} />}
+      {(updateVersion || updateError) && <UpdateBanner version={updateVersion} ready={updateReady} error={updateError} />}
       {!inGame
         ? <LoginFlow onEnterGame={name => { setCharName(name); setInGame(true) }} onOpenSettings={() => setShowSettings(true)} />
         : <GameLayout charName={charName} onReturnToLogin={() => { setCharName(''); setInGame(false) }} onOpenSettings={() => setShowSettings(true)} />

@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Meridian — DragonRealms Client</title>
+  <meta name="description" content="A modern Electron client for DragonRealms. Real-time parsing, resizable panels, Lich scripting, custom themes." />
+  <link rel="icon" href="./icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #04080f;
+      --bg-panel:     #070c1a;
+      --bg-card:      #08101f;
+      --border:       #1a2a4a;
+      --border-hi:    #4a6090;
+      --accent:       #c0d0ff;
+      --accent-glow:  rgba(192, 208, 255, 0.15);
+      --accent-dim:   #0a1228;
+      --text:         #b8c4e0;
+      --text-bright:  #eeeeff;
+      --text-dim:     #3e4e72;
+      --text-muted:   #647ab0;
+      --green:        #38d838;
+      --red:          #dd1818;
+      --blue:         #4080e0;
+      --cyan:         #40b8e0;
+      --purple:       #a040e0;
+      --orange:       #ff5820;
+      --gold:         #e0c060;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Scanline overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0) 0px,
+        rgba(0,0,0,0) 3px,
+        rgba(0,0,0,0.05) 3px,
+        rgba(0,0,0,0.05) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(4, 8, 15, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 52px;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+    .nav-logo {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      letter-spacing: .12em;
+      color: var(--accent);
+      text-shadow: 0 0 12px var(--accent-glow);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-logo img { width: 22px; height: 22px; image-rendering: auto; opacity: .9; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .nav-links a { color: var(--text-muted); transition: color .15s; }
+    .nav-links a:hover { color: var(--text-bright); text-decoration: none; }
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hi);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text) !important;
+      transition: border-color .15s, background .15s;
+    }
+    .nav-gh:hover { background: var(--accent-dim); border-color: var(--accent); text-decoration: none !important; }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(192,208,255,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 20% 80%, rgba(64,128,224,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 80% 80%, rgba(160,64,224,0.05) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(192,208,255,0.2);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 28px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+    .hero-title {
+      font-family: 'VT323', monospace;
+      font-size: clamp(64px, 12vw, 120px);
+      letter-spacing: .08em;
+      color: var(--text-bright);
+      text-shadow:
+        0 0 40px rgba(192,208,255,0.35),
+        0 0 80px rgba(192,208,255,0.15),
+        2px 2px 0 #060a18;
+      line-height: 1;
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 20px);
+      font-weight: 300;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin-bottom: 40px;
+      position: relative;
+      z-index: 1;
+    }
+    .hero-sub strong { color: var(--text); font-weight: 500; }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 60px;
+      position: relative;
+      z-index: 1;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      border: none;
+      text-decoration: none !important;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #06090f;
+      box-shadow: 0 0 24px rgba(192,208,255,0.25);
+    }
+    .btn-primary:hover { background: #d8e4ff; box-shadow: 0 0 36px rgba(192,208,255,0.4); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-hi);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    .hero-platforms {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-dim);
+      position: relative;
+      z-index: 1;
+    }
+    .platform-chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+    }
+
+    /* ── Screenshot ── */
+    .screenshot-section {
+      padding: 0 24px 100px;
+    }
+    .screenshot-wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-hi);
+      box-shadow:
+        0 0 0 1px var(--border),
+        0 24px 80px rgba(0,0,0,0.8),
+        0 0 80px rgba(192,208,255,0.06);
+      position: relative;
+    }
+    .screenshot-chrome {
+      background: #050a14;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chrome-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .chrome-title {
+      margin-left: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      flex: 1;
+      text-align: center;
+    }
+    .screenshot-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ── Sections ── */
+    section { padding: 90px 0; }
+    section + section { padding-top: 0; }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 700;
+      color: var(--text-bright);
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+    .section-desc {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.7;
+    }
+    .section-head { margin-bottom: 52px; }
+
+    /* ── Feature grid ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      transition: border-color .2s, box-shadow .2s, transform .2s;
+    }
+    .feature-card:hover {
+      border-color: var(--border-hi);
+      box-shadow: 0 0 24px rgba(192,208,255,0.06), inset 0 1px 0 rgba(192,208,255,0.05);
+      transform: translateY(-2px);
+    }
+    .feature-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      margin-bottom: 14px;
+    }
+    .feature-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+    .ic-blue   { background: rgba(64,128,224,0.12);  color: var(--blue);   }
+    .ic-green  { background: rgba(56,216,56,0.10);   color: var(--green);  }
+    .ic-purple { background: rgba(160,64,224,0.12);  color: var(--purple); }
+    .ic-cyan   { background: rgba(64,184,224,0.12);  color: var(--cyan);   }
+    .ic-gold   { background: rgba(224,192,96,0.12);  color: var(--gold);   }
+    .ic-red    { background: rgba(221,24,24,0.12);   color: var(--red);    }
+
+    /* ── Terminal block ── */
+    .terminal {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+    .terminal-bar {
+      background: #050a14;
+      border-bottom: 1px solid var(--border);
+      padding: 9px 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .terminal-body { padding: 20px 22px; line-height: 1.9; }
+    .t-dim    { color: var(--text-dim); }
+    .t-green  { color: var(--green); }
+    .t-accent { color: var(--accent); }
+    .t-gold   { color: var(--gold); }
+    .t-red    { color: var(--red); }
+    .t-cyan   { color: var(--cyan); }
+    .t-purple { color: var(--purple); }
+    .t-white  { color: var(--text-bright); }
+    .t-caret {
+      display: inline-block;
+      width: 8px; height: 14px;
+      background: var(--accent);
+      vertical-align: middle;
+      animation: blink .9s step-end infinite;
+      margin-left: 2px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Download ── */
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .download-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .download-card:hover {
+      border-color: var(--border-hi);
+      box-shadow: 0 0 20px rgba(192,208,255,0.05);
+    }
+    .dl-os-icon { font-size: 28px; line-height: 1; }
+    .dl-os-name {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+    .dl-os-note {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hi);
+      border-radius: 7px;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      transition: all .15s;
+      text-decoration: none !important;
+    }
+    .dl-btn:hover { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .dl-btn-primary {
+      background: var(--accent);
+      color: #06090f;
+      border-color: var(--accent);
+      box-shadow: 0 0 16px rgba(192,208,255,0.2);
+    }
+    .dl-btn-primary:hover { background: #d8e4ff; color: #06090f; box-shadow: 0 0 24px rgba(192,208,255,0.35); }
+
+    /* ── Two-col layout ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+    @media (max-width: 720px) {
+      .two-col { grid-template-columns: 1fr; gap: 40px; }
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 24px;
+    }
+    .footer-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-logo {
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      letter-spacing: .1em;
+      color: var(--text-dim);
+    }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .footer-links a { color: var(--text-dim); transition: color .15s; }
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+    .footer-disclaimer {
+      width: 100%;
+      font-size: 11px;
+      color: var(--text-dim);
+      opacity: .6;
+      margin-top: 8px;
+    }
+
+    /* ── Vitals bar demo ── */
+    .vitals-demo {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 20px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+    .vital-row { display: flex; align-items: center; gap: 10px; }
+    .vital-label { color: var(--text-dim); width: 64px; flex-shrink: 0; }
+    .vital-bar {
+      flex: 1;
+      height: 7px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .vital-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .6s ease;
+    }
+    .vital-val { color: var(--text-muted); width: 38px; text-align: right; flex-shrink: 0; }
+    .bar-health  { background: var(--red);    box-shadow: 0 0 8px rgba(221,24,24,0.4); }
+    .bar-mana    { background: var(--blue);   box-shadow: 0 0 8px rgba(64,128,224,0.4); }
+    .bar-stamina { background: var(--cyan);   box-shadow: 0 0 8px rgba(64,184,224,0.4); }
+    .bar-spirit  { background: var(--purple); box-shadow: 0 0 8px rgba(160,64,224,0.4); }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .nav-links .nav-text { display: none; }
+      .hero-actions { flex-direction: column; align-items: center; }
+      .features-grid { grid-template-columns: 1fr; }
+      .download-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <img src="./icon.png" alt="" />
+      MERIDIAN
+    </div>
+    <div class="nav-links">
+      <a href="#features" class="nav-text">Features</a>
+      <a href="#download" class="nav-text">Download</a>
+      <a href="https://github.com/jackfperryjr/meridian" class="nav-gh" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        <span class="nav-text">GitHub</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="hero-badge-dot"></span>
+    Open Source · Free · DragonRealms
+  </div>
+  <h1 class="hero-title">MERIDIAN</h1>
+  <p class="hero-sub">
+    A <strong>modern desktop client</strong> for DragonRealms — built with Electron.
+    Real-time XML parsing, resizable panels, custom themes, and full Lich scripting support.
+  </p>
+  <div class="hero-actions">
+    <a href="#download" class="btn btn-primary">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 12l-4.5-4.5 1.06-1.06L7 9.88V2h2v7.88l2.44-2.44 1.06 1.06L8 12zM2 14h12v-2H2v2z"/></svg>
+      Download
+    </a>
+    <a href="https://github.com/jackfperryjr/meridian" class="btn btn-secondary" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View Source
+    </a>
+    <a href="https://github.com/jackfperryjr/meridian/blob/main/GUIDE.md" class="btn btn-secondary" target="_blank" rel="noopener">
+      Player Guide
+    </a>
+  </div>
+  <div class="hero-platforms">
+    <span>Runs on</span>
+    <span class="platform-chip">Windows</span>
+    <span class="platform-chip">macOS</span>
+    <span class="platform-chip">Linux</span>
+  </div>
+</section>
+
+<!-- ── Screenshot ────────────────────────────────────────────────────────── -->
+<div class="screenshot-section">
+  <div class="screenshot-wrap">
+    <div class="screenshot-chrome">
+      <span class="chrome-dot" style="background:#ff5f57"></span>
+      <span class="chrome-dot" style="background:#febc2e"></span>
+      <span class="chrome-dot" style="background:#28c840"></span>
+      <span class="chrome-title">Meridian — Khorlo Tenith — connected</span>
+    </div>
+    <img src="./screenshot-game.png" alt="Meridian game view — real-time output, vitals, room panel, spell tracking" loading="lazy" />
+  </div>
+</div>
+
+<!-- ── Features ──────────────────────────────────────────────────────────── -->
+<section id="features">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">// features</div>
+      <h2 class="section-title">Everything you need in Elanthia</h2>
+      <p class="section-desc">Built for real play — not just a thin wrapper around the raw telnet stream.</p>
+    </div>
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon ic-blue">⚡</div>
+        <h3>Real-Time XML Parsing</h3>
+        <p>Full DragonRealms XML stream parser. Vitals, roundtime, room data, active spells, indicators — all updated live as you play.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon ic-green">▦</div>
+        <h3>Resizable Panel Layout</h3>
+        <p>Drag panels to any height from the top or bottom edge. Slide the divider between game output and sidebar left or right. Your layout is saved automatically.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon ic-purple">✦</div>
+        <h3>Custom Highlights</h3>
+        <p>Regex or plain-text patterns with custom foreground, background, and bold styling. Spot your character name, loot, danger, and more at a glance.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon ic-cyan">⚙</div>
+        <h3>Lich Scripting</h3>
+        <p>Launch Lich in frostbite mode straight from the login screen. Script output is captured in a separate log drawer so it doesn't clutter your game output.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon ic-gold">◈</div>
+        <h3>Five Themes</h3>
+        <p>Meridian, Bloodstone, Thornwood, Parchment, and Ironforge — or Ironforge. Each with a full color palette for health, mana, speech, warnings, and more.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon ic-red">↻</div>
+        <h3>Auto-Updates</h3>
+        <p>New releases download silently in the background. A banner appears when the update is ready — no manual downloads or reinstalls needed.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Vitals + Terminal ──────────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="two-col">
+      <div>
+        <div class="section-label">// panels</div>
+        <h2 class="section-title">Your character, at a glance</h2>
+        <p class="section-desc" style="margin-bottom: 28px;">
+          Vitals, active spells, current room, experience tracker, conversation log, combat stream, encumbrance, and inventory — each in its own panel you can show, hide, and resize.
+        </p>
+        <div class="vitals-demo">
+          <div class="vital-row">
+            <span class="vital-label">Health</span>
+            <div class="vital-bar"><div class="vital-fill bar-health" style="width:82%"></div></div>
+            <span class="vital-val" style="color:#dd1818">82%</span>
+          </div>
+          <div class="vital-row">
+            <span class="vital-label">Mana</span>
+            <div class="vital-bar"><div class="vital-fill bar-mana" style="width:100%"></div></div>
+            <span class="vital-val" style="color:#4080e0">100%</span>
+          </div>
+          <div class="vital-row">
+            <span class="vital-label">Stamina</span>
+            <div class="vital-bar"><div class="vital-fill bar-stamina" style="width:65%"></div></div>
+            <span class="vital-val" style="color:#40b8e0">65%</span>
+          </div>
+          <div class="vital-row">
+            <span class="vital-label">Spirit</span>
+            <div class="vital-bar"><div class="vital-fill bar-spirit" style="width:100%"></div></div>
+            <span class="vital-val" style="color:#a040e0">100%</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">// game output</div>
+        <h2 class="section-title">Highlights that matter</h2>
+        <p class="section-desc" style="margin-bottom: 28px;">
+          Color-code anything: your name, enemy attacks, loot drops, incoming messages. Regex patterns supported. Clickable exit links let you move with one click.
+        </p>
+        <div class="terminal">
+          <div class="terminal-bar">
+            <span class="chrome-dot" style="background:#ff5f57; width:8px; height:8px; border-radius:50%; display:inline-block"></span>
+            <span class="chrome-dot" style="background:#febc2e; width:8px; height:8px; border-radius:50%; display:inline-block"></span>
+            <span class="chrome-dot" style="background:#28c840; width:8px; height:8px; border-radius:50%; display:inline-block"></span>
+          </div>
+          <div class="terminal-body">
+            <div><span class="t-white">The Gondola Dock, Riverhaven</span></div>
+            <div><span class="t-dim">Stone steps lead down to a…</span></div>
+            <div style="margin-top:6px"><span class="t-dim">Also here: </span><span class="t-gold">Sabrissa, Corvath</span></div>
+            <div><span class="t-dim">Obvious paths: </span><span class="t-green">north</span><span class="t-dim">, </span><span class="t-green">south</span></div>
+            <div style="margin-top:6px"><span class="t-dim">Sabrissa says, </span><span class="t-cyan">"Watch the north gate."</span></div>
+            <div><span class="t-accent t-bold" style="font-weight:700">Jackreous</span><span class="t-dim"> slips quietly into the shadows.</span></div>
+            <div style="margin-top:6px"><span class="t-red" style="font-weight:700">Roundtime: 3 sec.</span></div>
+            <div style="margin-top:4px"><span class="t-dim">&gt; </span><span class="t-accent">hide</span><span class="t-caret"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Download ───────────────────────────────────────────────────────────── -->
+<section id="download">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">// download</div>
+      <h2 class="section-title">Get Meridian</h2>
+      <p class="section-desc">Free and open source. Builds for all platforms are released automatically on every update.</p>
+    </div>
+    <div class="download-grid">
+
+      <div class="download-card">
+        <div class="dl-os-icon">🪟</div>
+        <div>
+          <div class="dl-os-name">Windows</div>
+          <div class="dl-os-note">.exe installer · x64</div>
+        </div>
+        <a href="https://github.com/jackfperryjr/meridian/releases/latest" class="dl-btn dl-btn-primary" target="_blank" rel="noopener">
+          Download for Windows
+        </a>
+        <div style="font-size:11px; color:var(--text-dim); line-height:1.5">
+          Windows may show a SmartScreen warning on first run — click "More info → Run anyway" to proceed.
+        </div>
+      </div>
+
+      <div class="download-card">
+        <div class="dl-os-icon"></div>
+        <div>
+          <div class="dl-os-name">macOS</div>
+          <div class="dl-os-note">.dmg · Apple Silicon + Intel</div>
+        </div>
+        <a href="https://github.com/jackfperryjr/meridian/releases/latest" class="dl-btn" target="_blank" rel="noopener">
+          Download for macOS
+        </a>
+        <div style="font-size:11px; color:var(--text-dim); line-height:1.5">
+          On first launch, right-click the app and choose <em>Open</em> to bypass Gatekeeper.
+        </div>
+      </div>
+
+      <div class="download-card">
+        <div class="dl-os-icon">🐧</div>
+        <div>
+          <div class="dl-os-name">Linux</div>
+          <div class="dl-os-note">.AppImage · x64</div>
+        </div>
+        <a href="https://github.com/jackfperryjr/meridian/releases/latest" class="dl-btn" target="_blank" rel="noopener">
+          Download for Linux
+        </a>
+        <div style="font-size:11px; color:var(--text-dim); line-height:1.5">
+          Mark executable: <code style="font-family:'JetBrains Mono',monospace; color:var(--accent)">chmod +x Meridian*.AppImage</code>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top: 32px; padding: 20px 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text-muted); line-height: 1.7;">
+      <strong style="color: var(--text); display:block; margin-bottom:6px;">Looking for a specific version?</strong>
+      All releases, release notes, and older installers are on the
+      <a href="https://github.com/jackfperryjr/meridian/releases" target="_blank" rel="noopener">GitHub Releases page</a>.
+    </div>
+  </div>
+</section>
+
+<!-- ── Login screenshot ───────────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="two-col">
+      <div>
+        <div class="section-label">// getting started</div>
+        <h2 class="section-title">Up and running in minutes</h2>
+        <p class="section-desc" style="margin-bottom: 24px;">
+          No config files to edit. Download, install, log in with your DragonRealms account, pick your character, and you're in.
+        </p>
+        <ol style="list-style:none; display:flex; flex-direction:column; gap:16px;">
+          <li style="display:flex; gap:14px; align-items:flex-start;">
+            <span style="font-family:'VT323',monospace; font-size:20px; color:var(--accent); line-height:1.4; flex-shrink:0;">01</span>
+            <span style="font-size:14px; color:var(--text-muted);">Download and install Meridian for your platform.</span>
+          </li>
+          <li style="display:flex; gap:14px; align-items:flex-start;">
+            <span style="font-family:'VT323',monospace; font-size:20px; color:var(--accent); line-height:1.4; flex-shrink:0;">02</span>
+            <span style="font-size:14px; color:var(--text-muted);">Enter your SimuCo account credentials on the login screen.</span>
+          </li>
+          <li style="display:flex; gap:14px; align-items:flex-start;">
+            <span style="font-family:'VT323',monospace; font-size:20px; color:var(--accent); line-height:1.4; flex-shrink:0;">03</span>
+            <span style="font-size:14px; color:var(--text-muted);">Select your character and connect. Your layout and highlights are saved automatically.</span>
+          </li>
+          <li style="display:flex; gap:14px; align-items:flex-start;">
+            <span style="font-family:'VT323',monospace; font-size:20px; color:var(--accent); line-height:1.4; flex-shrink:0;">04</span>
+            <span style="font-size:14px; color:var(--text-muted);"><em>Optional:</em> Add your Lich path in Settings to enable scripting.</span>
+          </li>
+        </ol>
+      </div>
+      <div>
+        <div class="screenshot-wrap" style="border-radius:10px;">
+          <div class="screenshot-chrome">
+            <span class="chrome-dot" style="background:#ff5f57"></span>
+            <span class="chrome-dot" style="background:#febc2e"></span>
+            <span class="chrome-dot" style="background:#28c840"></span>
+            <span class="chrome-title">Meridian — Login</span>
+          </div>
+          <img src="./screenshot-login.png" alt="Meridian login screen" loading="lazy" />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">MERIDIAN</div>
+    <div class="footer-links">
+      <a href="https://github.com/jackfperryjr/meridian" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/jackfperryjr/meridian/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/jackfperryjr/meridian/blob/main/GUIDE.md" target="_blank" rel="noopener">Guide</a>
+      <a href="https://github.com/jackfperryjr/meridian/issues" target="_blank" rel="noopener">Issues</a>
+    </div>
+    <p class="footer-disclaimer">
+      Meridian is an independent, unofficial client. DragonRealms is a registered trademark of Simutronics Corp.
+      This project is not affiliated with or endorsed by Simutronics.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
