@@ -8,6 +8,7 @@ export interface AppSettings {
   lastAccount: string
   fontSize:    number
   fontFamily:  string
+  passwords:   Record<string, string>  // account name → base64 encrypted password
 }
 
 const DEFAULTS: AppSettings = {
@@ -15,7 +16,8 @@ const DEFAULTS: AppSettings = {
   accounts:    [],
   lastAccount: '',
   fontSize:    13,
-  fontFamily:  'Cascadia Code'
+  fontFamily:  'Cascadia Code',
+  passwords:   {}
 }
 
 function settingsPath(): string {
@@ -40,6 +42,21 @@ export class SettingsStore {
 
   patch(partial: Partial<AppSettings>): void {
     this.data = { ...this.data, ...partial }
+    this.save()
+  }
+
+  savePassword(account: string, encryptedB64: string): void {
+    this.data.passwords = { ...this.data.passwords, [account]: encryptedB64 }
+    this.save()
+  }
+
+  getPasswordB64(account: string): string | null {
+    return this.data.passwords?.[account] ?? null
+  }
+
+  forgetPassword(account: string): void {
+    const { [account]: _, ...rest } = this.data.passwords ?? {}
+    this.data.passwords = rest
     this.save()
   }
 

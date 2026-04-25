@@ -51,6 +51,24 @@ let _inExpSkill  = ''    // skill name when inside <component id='exp X'>
 let _roomDescBuf = ''
 let _roomExitBuf = ''
 let _compassDirs: string[] = []
+let _preXmlPhase        = true   // true until the first XML line arrives after connect
+let _inInitialInventory = false  // suppress initial container dump until --- separator
+
+export function resetParser(): void {
+  _stream             = 'main'
+  _inRoomDesc         = false
+  _inRoomName         = false
+  _inExits            = false
+  _suppressComp       = false
+  _suppressExits      = false
+  _exitsBuf           = null
+  _inExpSkill         = ''
+  _roomDescBuf        = ''
+  _roomExitBuf        = ''
+  _compassDirs        = []
+  _preXmlPhase        = true
+  _inInitialInventory = false
+}
 
 function decodeEntities(s: string): string {
   return s
@@ -81,8 +99,9 @@ export function parseLine(raw: string): GameEvent[] {
     const ls = links.length > 0 ? [...links] : undefined
     links = []
     // Suppress output when inside special components
-    if (_inExpSkill)  return  // exp data — only expSkill event matters
-    if (_suppressComp) return // room objs/players — swallowed
+    if (_inExpSkill)      return  // exp data — only expSkill event matters
+    if (_suppressComp)    return  // room objs/players — swallowed
+    if (_inInitialInventory) { buf = ''; return }  // login-phase inventory container
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return }
     if (_inExits)    { _roomExitBuf += ' ' + text; return }
     events.push({ type: 'text', text, styles: s, stream: _stream, links: ls })
@@ -92,6 +111,16 @@ export function parseLine(raw: string): GameEvent[] {
   if (!raw.includes('<')) {
     const text = decodeEntities(raw).trim()
     if (!text || text === '>') return events
+    if (_preXmlPhase) {
+      if (/^In the .+:/i.test(text)) _inInitialInventory = true
+      if (_inInitialInventory) {
+        if (/^-{5,}/.test(text)) {
+          _inInitialInventory = false  // separator ends the dump — let it through
+        } else {
+          return events  // swallow container headers, item lines, Empty, Obvious paths
+        }
+      }
+    }
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return events }
     if (_inExits)    { _roomExitBuf += ' ' + text; return events }
     // Suppress duplicate plain-text exits (DR sends exits both as XML component and plain text)
@@ -440,6 +469,8 @@ export function parseLine(raw: string): GameEvent[] {
       // ── Prompt ────────────────────────────────────────────────────────────
       case 'prompt':
         flush()
+        _preXmlPhase = false
+        _inInitialInventory = false
         events.push({ type: 'prompt', time: parseInt(attrs['time'] ?? '0', 10) })
         break
 
@@ -455,6 +486,21 @@ export function parseLine(raw: string): GameEvent[] {
       case 'pushbold': flush(); styles = [{ bold: true }]; break
       case 'popbold':
       case '/pushbold': flush(); styles = []; break
+
+      // ── Login-phase inventory container — suppress all contents ─────────────
+      case 'container': {
+        flush()
+        if (_preXmlPhase) _inInitialInventory = true
+        break
+      }
+      case '/container': {
+        // Discard buffered text; keep _inInitialInventory true so plain-text
+        // lines after the container (Empty, Obvious paths:) are also suppressed
+        // until the --- separator clears it.
+        buf = ''
+        styles = []
+        break
+      }
 
       // ── Ignore ────────────────────────────────────────────────────────────
       case 'output': case '/output':

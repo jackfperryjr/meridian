@@ -9,9 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jackfperryjr/meridian/releases/latest">
-    <img src="https://img.shields.io/github/v/release/jackfperryjr/meridian?style=flat-square&color=4a90d9&label=latest" alt="Latest Release" />
-  </a>
+  <img src="https://img.shields.io/github/v/release/jackfperryjr/meridian?style=flat-square&color=4a90d9&label=latest" alt="Latest Release" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-4a90d9?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/built%20with-Electron%20%2B%20React-764abc?style=flat-square" alt="Built with Electron + React" />
 </p>

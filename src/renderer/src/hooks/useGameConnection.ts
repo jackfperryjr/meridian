@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react'
 import { useSetAtom, useAtom } from 'jotai'
-import { parseLine } from '../lib/sge-parser'
+import { parseLine, resetParser } from '../lib/sge-parser'
 import { connectionStatusAtom, dispatchGameEventAtom } from '../store/game'
 
 export function useGameConnection() {
@@ -16,7 +16,7 @@ export function useGameConnection() {
     })
 
     const unsubs = [
-      window.dr.game.onConnected(()       => setStatus('connected')),
+      window.dr.game.onConnected(()       => { resetParser(); setStatus('connected') }),
       window.dr.game.onDisconnected(()    => setStatus('disconnected')),
       window.dr.game.onError(()           => setStatus('error')),
       window.dr.game.onData((raw: string) => parseLine(raw).forEach(dispatch))

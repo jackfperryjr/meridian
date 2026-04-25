@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, safeStorage } from 'electron'
 import { join } from 'path'
 import { autoUpdater } from 'electron-updater'
 import { LichManager, LichConnection } from './lich-manager'
@@ -90,7 +90,7 @@ function setupUpdater(): void {
   autoUpdater.autoDownload         = true
   autoUpdater.autoInstallOnAppQuit = true
   // Skip electron-updater's own code-signature check — app is not signed
-  autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null)
+  ;(autoUpdater as unknown as Record<string, unknown>).verifyUpdateCodeSignature = () => Promise.resolve(null)
 
   autoUpdater.on('update-available', (info) => {
     pendingUpdateVersion = info.version
@@ -114,6 +114,21 @@ function setupIpcHandlers(): void {
   ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
   ipcMain.handle('settings:get-all', () => settings.getAll())
   ipcMain.handle('settings:patch',   (_e, p) => settings.patch(p))
+
+  ipcMain.handle('auth:save-password', (_e, account: string, password: string) => {
+    if (!safeStorage.isEncryptionAvailable()) return
+    const encrypted = safeStorage.encryptString(password)
+    settings.savePassword(account, encrypted.toString('base64'))
+  })
+  ipcMain.handle('auth:get-password', (_e, account: string) => {
+    if (!safeStorage.isEncryptionAvailable()) return null
+    const b64 = settings.getPasswordB64(account)
+    if (!b64) return null
+    try { return safeStorage.decryptString(Buffer.from(b64, 'base64')) } catch { return null }
+  })
+  ipcMain.handle('auth:forget-password', (_e, account: string) => {
+    settings.forgetPassword(account)
+  })
 
   ipcMain.handle('auth:login', async (_e, account: string, password: string) => {
     const result = await sgeAuth(account, password, (l) => lichLog('[sge] ' + l))

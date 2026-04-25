@@ -32,9 +32,10 @@ function Back({ onClick }: { onClick: () => void }) {
 }
 
 // ─── Screen 1: Saved accounts ─────────────────────────────────────────────────
-function AccountListScreen({ accounts, onSelect, onAddNew, onSettings }: {
+function AccountListScreen({ accounts, onSelect, onForget, onAddNew, onSettings }: {
   accounts:   SavedAccount[]
   onSelect:   (a: SavedAccount) => void
+  onForget:   (name: string) => void
   onAddNew:   () => void
   onSettings: () => void
 }) {
@@ -47,6 +48,11 @@ function AccountListScreen({ accounts, onSelect, onAddNew, onSettings }: {
             <span className="login-account-name">{a.name}</span>
             {a.lastCharacter && <span className="login-account-last">Last: {a.lastCharacter}</span>}
           </div>
+          <span
+            className="login-account-forget"
+            title="Forget saved password"
+            onClick={e => { e.stopPropagation(); onForget(a.name) }}
+          >🔑</span>
           <span className="login-account-arrow">›</span>
         </button>
       ))}
@@ -57,17 +63,21 @@ function AccountListScreen({ accounts, onSelect, onAddNew, onSettings }: {
 }
 
 // ─── Screen 2: Credentials ────────────────────────────────────────────────────
-function CredentialsScreen({ initialAccount, onSubmit, onBack, error, loading, logLines }: {
+function CredentialsScreen({ initialAccount, onSubmit, onBack, error, loading }: {
   initialAccount: string
   onSubmit:       (account: string, password: string) => void
   onBack?:        () => void
   error:          string
   loading:        boolean
-  logLines:       string[]
 }) {
   const [account,  setAccount]  = useState(initialAccount)
   const [password, setPassword] = useState('')
   const submit = () => { if (account && password) onSubmit(account, password) }
+
+  useEffect(() => {
+    if (!initialAccount) return
+    window.dr.auth.getPassword(initialAccount).then(p => { if (p) setPassword(p) })
+  }, [initialAccount])
 
   return <>
     {onBack && <Back onClick={onBack} />}
@@ -88,9 +98,6 @@ function CredentialsScreen({ initialAccount, onSubmit, onBack, error, loading, l
       disabled={loading || !account || !password}>
       {loading ? 'Signing in…' : 'Sign in'}
     </button>
-    {logLines.length > 0 && (
-      <div className="login-log">{logLines.map((l, i) => <div key={i}>{l}</div>)}</div>
-    )}
   </>
 }
 
@@ -255,6 +262,7 @@ export function LoginFlow({ onEnterGame, onOpenSettings }: LoginFlowProps) {
     const result = await window.dr.auth.login(account, password)
     setLoading(false)
     if (!result.ok) { setError(result.error); return }
+    window.dr.auth.savePassword(account, password)
     setActiveAccount(account)
     setInstances(result.instances)
     await refreshSettings()
@@ -294,6 +302,7 @@ export function LoginFlow({ onEnterGame, onOpenSettings }: LoginFlowProps) {
         <AccountListScreen
           accounts={savedAccounts}
           onSelect={a => { setActiveAccount(a.name); setLastCharId(a.lastCharacter); setError(''); setScreen('credentials') }}
+          onForget={name => window.dr.auth.forgetPassword(name)}
           onAddNew={() => { setActiveAccount(''); setError(''); setScreen('credentials') }}
           onSettings={onOpenSettings}
         />
@@ -305,7 +314,6 @@ export function LoginFlow({ onEnterGame, onOpenSettings }: LoginFlowProps) {
           onBack={savedAccounts.length > 0 ? () => setScreen('account-list') : undefined}
           error={error}
           loading={loading}
-          logLines={logLines}
         />
       )}
       {screen === 'instance-select' && (

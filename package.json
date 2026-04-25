@@ -43,6 +43,15 @@
       "owner": "jackfperryjr",
       "repo": "meridian"
     },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}.${ext}"
+    },
     "win": {
       "target": "nsis"
     },

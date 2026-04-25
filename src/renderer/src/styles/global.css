@@ -716,6 +716,16 @@ body {
   text-transform: uppercase; font-family: var(--font-ui);
 }
 .login-account-arrow { color: var(--text-dim); }
+.login-account-forget {
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity .15s;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+.login-account-btn:hover .login-account-forget { opacity: 0.45; }
+.login-account-forget:hover { opacity: 1 !important; background: var(--accent-dim); }
 
 .login-accounts-list { display: flex; flex-direction: column; gap: 4px; }
 .login-account-btn {
