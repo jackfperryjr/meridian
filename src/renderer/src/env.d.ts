@@ -34,7 +34,11 @@ interface DrAPI {
     onStatus: (cb: (s: string) => void) => () => void
     onError:  (cb: (m: string) => void) => () => void
   }
+  app: {
+    getVersion: () => Promise<string>
+  }
   updater: {
+    check:       () => Promise<void>
     install:     () => Promise<void>
     onAvailable: (cb: (version: string) => void) => () => void
     onReady:     (cb: () => void)                => () => void

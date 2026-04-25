@@ -1034,6 +1034,14 @@ body {
 .hand-label { color: var(--accent); flex-shrink: 0; }
 .hand-item  { color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 
+/* ── Version label ───────────────────────────────────────────────────────── */
+.app-version-label {
+  position: fixed; bottom: 6px; right: 10px; z-index: 10;
+  font-size: 10px; font-family: var(--font-ui);
+  color: var(--text-muted);
+  pointer-events: none; user-select: none;
+}
+
 /* ── Update banner ────────────────────────────────────────────────────────── */
 .update-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 9999;

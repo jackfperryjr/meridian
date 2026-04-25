@@ -224,11 +224,13 @@ function UpdateBanner({ version, ready }: { version: string; ready: boolean }) {
 }
 
 function AppInner() {
-  const [inGame,         setInGame]         = useState(false)
-  const [updateVersion,  setUpdateVersion]  = useState('')
-  const [updateReady,    setUpdateReady]    = useState(false)
+  const [inGame,        setInGame]        = useState(false)
+  const [updateVersion, setUpdateVersion] = useState('')
+  const [updateReady,   setUpdateReady]   = useState(false)
+  const [appVersion,    setAppVersion]    = useState('')
 
   useEffect(() => {
+    window.dr.app.getVersion().then(setAppVersion)
     const unsubs = [
       window.dr.updater.onAvailable((v: string) => setUpdateVersion(v)),
       window.dr.updater.onReady(()              => setUpdateReady(true))
@@ -243,6 +245,11 @@ function AppInner() {
         ? <LoginFlow onEnterGame={() => setInGame(true)} />
         : <GameLayout onReturnToLogin={() => setInGame(false)} />
       }
+      {appVersion && (
+        <div className="app-version-label">
+          {appVersion === '0.0.0' ? 'dev' : `v${appVersion}`}
+        </div>
+      )}
     </>
   )
 }
