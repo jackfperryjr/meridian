@@ -71,10 +71,20 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            arch_flag: ""
+            artifact_name: dist-windows
             artifact_pattern: "dist/*.exe"
+          - os: macos-13
+            arch_flag: "--x64"
+            artifact_name: dist-macos-x64
+            artifact_pattern: "dist/*.dmg"
           - os: macos-latest
+            arch_flag: "--arm64"
+            artifact_name: dist-macos-arm64
             artifact_pattern: "dist/*.dmg"
           - os: ubuntu-latest
+            arch_flag: ""
+            artifact_name: dist-linux
             artifact_pattern: "dist/*.AppImage"
     runs-on: ${{ matrix.os }}
 
@@ -93,14 +103,14 @@ jobs:
         run: npm version ${{ needs.tag.outputs.new_tag }} --no-git-tag-version
 
       - name: Build and package
-        run: npx electron-vite build && npx electron-builder --publish never
+        run: npx electron-vite build && npx electron-builder ${{ matrix.arch_flag }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ matrix.os }}
+          name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_pattern }}
           if-no-files-found: error
 

@@ -58,6 +58,9 @@ function createWindow(): void {
       gameConn.getStatus() === 'connected' ? 'game:connected' : 'game:disconnected'
     )
     send('lich:status', lichManager.getStatus())
+    // Replay any update events that fired before the renderer was ready
+    if (pendingUpdateVersion) send('updater:available', pendingUpdateVersion)
+    if (updateDownloaded)     send('updater:ready')
   })
 }
 
@@ -79,17 +82,29 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+// Track update state so we can replay to renderer after it loads
+let pendingUpdateVersion = ''
+let updateDownloaded     = false
+
 function setupUpdater(): void {
-  autoUpdater.autoDownload        = true
+  autoUpdater.autoDownload         = true
   autoUpdater.autoInstallOnAppQuit = true
 
-  autoUpdater.on('update-available',  (info) => send('updater:available', info.version))
-  autoUpdater.on('update-downloaded', ()     => send('updater:ready'))
+  autoUpdater.on('update-available', (info) => {
+    pendingUpdateVersion = info.version
+    send('updater:available', info.version)
+  })
+  autoUpdater.on('update-downloaded', () => {
+    updateDownloaded = true
+    send('updater:ready')
+  })
 
   if (app.isPackaged) autoUpdater.checkForUpdates()
 }
 
 function setupIpcHandlers(): void {
+  ipcMain.handle('app:version',     () => app.getVersion())
+  ipcMain.handle('updater:check',   () => { if (app.isPackaged) autoUpdater.checkForUpdates() })
   ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
   ipcMain.handle('settings:get-all', () => settings.getAll())
   ipcMain.handle('settings:patch',   (_e, p) => settings.patch(p))
