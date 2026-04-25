@@ -75,13 +75,9 @@ jobs:
             arch_flag: ""
             artifact_name: dist-windows
             artifact_pattern: "dist/*.exe"
-          - os: macos-13
-            arch_flag: "--x64"
-            artifact_name: dist-macos-x64
-            artifact_pattern: "dist/*.dmg"
           - os: macos-latest
-            arch_flag: "--arm64"
-            artifact_name: dist-macos-arm64
+            arch_flag: "--x64 --arm64"
+            artifact_name: dist-macos
             artifact_pattern: "dist/*.dmg"
           - os: ubuntu-latest
             arch_flag: ""
