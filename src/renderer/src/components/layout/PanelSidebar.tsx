@@ -19,61 +19,102 @@ const DEFAULT_PANELS: PanelConfig[] = [
   { id: 'inventory',    label: 'Inventory',     visible: false },
 ]
 
-const STORAGE_KEY = 'meridian-panels-v3'
+const PANELS_KEY  = 'meridian-panels-v3'
+const HEIGHTS_KEY = 'meridian-panel-heights-v1'
 
 function loadPanels(): PanelConfig[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(PANELS_KEY)
     if (raw) return JSON.parse(raw) as PanelConfig[]
   } catch {}
   return DEFAULT_PANELS
 }
 
 function savePanels(panels: PanelConfig[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(panels)) } catch {}
+  try { localStorage.setItem(PANELS_KEY, JSON.stringify(panels)) } catch {}
+}
+
+function loadHeights(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(HEIGHTS_KEY)
+    if (raw) return JSON.parse(raw) as Record<string, number>
+  } catch {}
+  return {}
+}
+
+function saveHeights(heights: Record<string, number>) {
+  try { localStorage.setItem(HEIGHTS_KEY, JSON.stringify(heights)) } catch {}
 }
 
 // ── Single panel ───────────────────────────────────────────────────────────────
 function Panel({
-  config, children, onToggle
+  config, children, onToggle,
+  height, onResizeBottom, onResizeTop,
 }: {
-  config: PanelConfig; children: React.ReactNode; onToggle: () => void
+  config:          PanelConfig
+  children:        React.ReactNode
+  onToggle:        () => void
+  height:          number | null
+  onResizeBottom:  (h: number) => void
+  onResizeTop?:    (delta: number) => void
 }) {
   const [collapsed, setCollapsed] = useState(false)
-  const [height, setHeight]       = useState<number | null>(null)
-  const bodyRef   = useRef<HTMLDivElement>(null)
-  const dragging  = useRef(false)
-  const startY    = useRef(0)
-  const startH    = useRef(0)
+  const bodyRef = useRef<HTMLDivElement>(null)
 
-  const onResizeStart = (e: React.MouseEvent) => {
+  // Use refs so the single shared event handler always sees fresh values
+  const dragMode   = useRef<'top' | 'bottom' | null>(null)
+  const startY     = useRef(0)
+  const startH     = useRef(0)
+  const onBottomCb = useRef(onResizeBottom)
+  const onTopCb    = useRef(onResizeTop)
+  useEffect(() => { onBottomCb.current = onResizeBottom }, [onResizeBottom])
+  useEffect(() => { onTopCb.current    = onResizeTop    }, [onResizeTop])
+
+  const beginDrag = (mode: 'top' | 'bottom', e: React.MouseEvent) => {
     e.preventDefault()
-    dragging.current = true
+    dragMode.current = mode
     startY.current   = e.clientY
     startH.current   = bodyRef.current?.clientHeight ?? 120
-    document.body.style.cursor    = 'ns-resize'
+    document.body.style.cursor     = 'ns-resize'
     document.body.style.userSelect = 'none'
   }
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (!dragging.current) return
-      const newH = Math.max(48, startH.current + (e.clientY - startY.current))
-      setHeight(newH)
+      if (!dragMode.current) return
+      if (dragMode.current === 'bottom') {
+        const newH = Math.max(48, startH.current + (e.clientY - startY.current))
+        onBottomCb.current(newH)
+      } else {
+        // top handle: incremental delta — positive delta = dragging down = prev panel grows
+        const delta = e.clientY - startY.current
+        startY.current = e.clientY
+        onTopCb.current?.(delta)
+      }
     }
     const onUp = () => {
-      if (!dragging.current) return
-      dragging.current = false
-      document.body.style.cursor    = ''
+      if (!dragMode.current) return
+      dragMode.current = null
+      document.body.style.cursor     = ''
       document.body.style.userSelect = ''
     }
     window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    window.addEventListener('mouseup',   onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup',   onUp)
+    }
   }, [])
 
   return (
     <div className="panel-card">
+      {onResizeTop && (
+        <div
+          className="panel-resize-handle panel-resize-handle-top"
+          onMouseDown={e => beginDrag('top', e)}
+          title="Drag to resize"
+        />
+      )}
       <div className="panel-header" onDoubleClick={() => setCollapsed(c => !c)}>
         <span className="panel-title">{config.label}</span>
         <div className="panel-header-actions">
@@ -92,7 +133,11 @@ function Panel({
           >
             {children}
           </div>
-          <div className="panel-resize-handle" onMouseDown={onResizeStart} title="Drag to resize" />
+          <div
+            className="panel-resize-handle"
+            onMouseDown={e => beginDrag('bottom', e)}
+            title="Drag to resize"
+          />
         </>
       )}
     </div>
@@ -132,33 +177,54 @@ function PanelManager({
 
 // ── Main sidebar ───────────────────────────────────────────────────────────────
 export function PanelSidebar({ renderPanel, sidebarWidth }: {
-  renderPanel: (id: PanelId) => React.ReactNode
+  renderPanel:   (id: PanelId) => React.ReactNode
   sidebarWidth?: number | null
 }) {
   const [panels,      setPanels]      = useState<PanelConfig[]>(loadPanels)
+  const [heights,     setHeights]     = useState<Record<string, number>>(loadHeights)
   const [showManager, setShowManager] = useState(false)
   const managerBtnRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => { savePanels(panels) }, [panels])
+  useEffect(() => { savePanels(panels)  }, [panels])
+  useEffect(() => { saveHeights(heights) }, [heights])
 
   const togglePanel = useCallback((id: PanelId) => {
     setPanels(prev => prev.map(p => p.id === id ? { ...p, visible: !p.visible } : p))
   }, [])
 
+  const setHeight = useCallback((id: string, h: number) => {
+    setHeights(prev => ({ ...prev, [id]: h }))
+  }, [])
+
+  const visible = panels.filter(p => p.visible)
+
   return (
-    <aside className="panel-sidebar" style={sidebarWidth ? { width: sidebarWidth, flex: "none" } : {}}>
+    <aside className="panel-sidebar" style={sidebarWidth ? { width: sidebarWidth, flex: 'none', maxWidth: 'none', minWidth: 0 } : {}}>
       <div className="panel-sidebar-header">
         <button ref={managerBtnRef} className="panel-manager-toggle" onClick={() => setShowManager(v => !v)}>
           ⊞ Panels
         </button>
       </div>
       <div className="panel-sidebar-scroll">
-        {panels.filter(p => p.visible).map(panel => (
-          <Panel key={panel.id} config={panel} onToggle={() => togglePanel(panel.id)}>
+        {visible.map((panel, i) => (
+          <Panel
+            key={panel.id}
+            config={panel}
+            height={heights[panel.id] ?? null}
+            onResizeBottom={h => setHeight(panel.id, h)}
+            onResizeTop={i > 0 ? (delta) => {
+              const prevId = visible[i - 1].id
+              setHeights(prev => ({
+                ...prev,
+                [prevId]: Math.max(48, (prev[prevId] ?? 120) + delta)
+              }))
+            } : undefined}
+            onToggle={() => togglePanel(panel.id)}
+          >
             {renderPanel(panel.id)}
           </Panel>
         ))}
-        {panels.filter(p => p.visible).length === 0 && (
+        {visible.length === 0 && (
           <div className="panel-sidebar-empty">No panels — click ⊞ Panels to add some.</div>
         )}
       </div>

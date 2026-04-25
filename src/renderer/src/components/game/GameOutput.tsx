@@ -30,6 +30,11 @@ function matchHighlight(text: string, highlights: Highlight[]): Highlight | null
   return null
 }
 
+function fmtTime(ts: number): string {
+  const d = new Date(ts)
+  return `[${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}] `
+}
+
 function GameLine({ line, highlights }: { line: OutputLine; highlights: Highlight[] }) {
   const hl = matchHighlight(line.text, highlights)
   const classList = ['game-line',
@@ -90,7 +95,12 @@ function GameLine({ line, highlights }: { line: OutputLine; highlights: Highligh
     return <div className={classList.join(' ')} style={style}>{parts}</div>
   }
 
-  return <div className={classList.join(' ')} style={style}>{line.text}</div>
+  return (
+    <div className={classList.join(' ')} style={style}>
+      {_showTimestamps && <span className="game-timestamp">{fmtTime(line.timestamp)}</span>}
+      {line.text}
+    </div>
+  )
 }
 
 
@@ -99,11 +109,18 @@ function expandCmd(cmd: string): string {
   return cmd.replace(/^go\s+/, '')
 }
 
-let _highlights: Highlight[] = []
+let _highlights:      Highlight[] = []
 export function setHighlights(h: Highlight[]) { _highlights = h }
 
 let _sendFn: ((cmd: string) => void) | null = null
 export function setSendFn(fn: (cmd: string) => void) { _sendFn = fn }
+
+let _showTimestamps = false
+export function setShowTimestamps(v: boolean) { _showTimestamps = v }
+
+let _outputBuffer = 5000
+export function setOutputBuffer(v: number) { _outputBuffer = v }
+export function getOutputBuffer() { return _outputBuffer }
 
 export function GameOutput() {
   const lines        = useAtomValue(outputLinesAtom)

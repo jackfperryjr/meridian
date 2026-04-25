@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
-interface LoginFlowProps { onEnterGame: () => void }
+interface LoginFlowProps { onEnterGame: (characterName: string) => void; onOpenSettings: () => void }
 
 type Screen =
   | 'account-list'
@@ -8,7 +8,6 @@ type Screen =
   | 'instance-select'
   | 'character-select'
   | 'connecting'
-  | 'settings'
 
 interface SGECharacter  { id: string; name: string }
 interface SGEInstance   { code: string; name: string }
@@ -209,7 +208,7 @@ function SettingsScreen({ initialPath, detectedPath, onSave, onBack }: {
 }
 
 // ─── Root controller ──────────────────────────────────────────────────────────
-export function LoginFlow({ onEnterGame }: LoginFlowProps) {
+export function LoginFlow({ onEnterGame, onOpenSettings }: LoginFlowProps) {
   const [screen,        setScreen]        = useState<Screen>('account-list')
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([])
   const [activeAccount, setActiveAccount] = useState('')
@@ -217,17 +216,16 @@ export function LoginFlow({ onEnterGame }: LoginFlowProps) {
   const [characters,    setCharacters]    = useState<SGECharacter[]>([])
   const [lastCharId,    setLastCharId]    = useState<string | undefined>()
   const [selectedChar,  setSelectedChar]  = useState<SGECharacter | null>(null)
+  const selectedCharRef = useRef<SGECharacter | null>(null)
   const [logLines,      setLogLines]      = useState<string[]>([])
   const [error,         setError]         = useState('')
   const [loading,       setLoading]       = useState(false)
   const [detectedPath,  setDetectedPath]  = useState('')
-  const [savedSettings, setSavedSettings] = useState({ lichPath: '' })
 
   useEffect(() => {
     Promise.all([window.dr.settings.getAll(), window.dr.lich.detectPath()])
       .then(([s, detected]) => {
         setSavedAccounts(s.accounts ?? [])
-        setSavedSettings({ lichPath: s.lichPath || '' })
         setDetectedPath(detected || '')
         if (!s.accounts?.length) setScreen('credentials')
       })
@@ -235,8 +233,8 @@ export function LoginFlow({ onEnterGame }: LoginFlowProps) {
 
   useEffect(() => {
     const unsubs = [
-      window.dr.lich.onStatus((s: string) => { if (s === 'ready') onEnterGame() }),
-      window.dr.game.onConnected(() => onEnterGame()),
+      window.dr.lich.onStatus((s: string) => { if (s === 'ready') onEnterGame(selectedCharRef.current?.name ?? '') }),
+      window.dr.game.onConnected(() => onEnterGame(selectedCharRef.current?.name ?? '')),
       window.dr.lich.onError((msg: string) => setError(msg)),
       window.dr.lich.onLog((l: string) =>
         setLogLines(prev => [...prev.slice(-99), l.trimEnd()])
@@ -248,7 +246,6 @@ export function LoginFlow({ onEnterGame }: LoginFlowProps) {
   const refreshSettings = async () => {
     const s = await window.dr.settings.getAll()
     setSavedAccounts(s.accounts ?? [])
-    setSavedSettings({ lichPath: s.lichPath || '' })
     return s
   }
 
@@ -283,18 +280,12 @@ export function LoginFlow({ onEnterGame }: LoginFlowProps) {
   // Step 3: character → Lich launch
   const handleCharacterSelect = async (char: SGECharacter) => {
     setSelectedChar(char)
+    selectedCharRef.current = char
     setLoading(true); setError(''); setLogLines([])
     setScreen('connecting')
     const result = await window.dr.auth.selectCharacter(char.id, char.name, activeAccount)
     setLoading(false)
     if (!result.ok) setError(result.error ?? 'Failed to connect.')
-  }
-
-  const handleSaveSettings = async (lichPath: string) => {
-    await window.dr.settings.patch({ lichPath })
-    const s = await refreshSettings()
-    setSavedSettings({ lichPath })
-    setScreen(s.accounts?.length ? 'account-list' : 'credentials')
   }
 
   return (
@@ -304,7 +295,7 @@ export function LoginFlow({ onEnterGame }: LoginFlowProps) {
           accounts={savedAccounts}
           onSelect={a => { setActiveAccount(a.name); setLastCharId(a.lastCharacter); setError(''); setScreen('credentials') }}
           onAddNew={() => { setActiveAccount(''); setError(''); setScreen('credentials') }}
-          onSettings={() => setScreen('settings')}
+          onSettings={onOpenSettings}
         />
       )}
       {screen === 'credentials' && (
@@ -342,14 +333,6 @@ export function LoginFlow({ onEnterGame }: LoginFlowProps) {
           logLines={logLines}
           error={error}
           onBack={() => { setError(''); setScreen('character-select') }}
-        />
-      )}
-      {screen === 'settings' && (
-        <SettingsScreen
-          initialPath={savedSettings.lichPath}
-          detectedPath={detectedPath}
-          onSave={handleSaveSettings}
-          onBack={() => setScreen(savedAccounts.length ? 'account-list' : 'credentials')}
         />
       )}
     </Shell>
