@@ -25,6 +25,9 @@ interface DrAPI {
     selectCharacter: (characterId: string, characterName: string, accountName: string) => Promise<
       { ok: true } | { ok: false; error: string }
     >
+    savePassword:   (account: string, password: string) => Promise<void>
+    getPassword:    (account: string)                   => Promise<string | null>
+    forgetPassword: (account: string)                   => Promise<void>
   }
   lich: {
     detectPath: () => Promise<string>

@@ -98,7 +98,6 @@ export function StatusBar({
   return (
     <div className="status-bar">
       <span className="app-title">Meridian</span>
-      {charName && <span className="status-char-name">{charName}</span>}
       <span className={`connection-status status-${status}`}>{status}</span>
 
       {status === 'connected' && (
@@ -134,7 +133,10 @@ export function StatusBar({
       {status === 'connected' && <HandDisplay />}
       <div className="status-bar-spacer" />
       {status === 'connected' && (
-        <button className="btn-connect" onClick={onDisconnect}>Disconnect</button>
+        <>
+          {charName && <span className="status-char-name">{charName}</span>}
+          <button className="btn-connect" onClick={onDisconnect}>Disconnect</button>
+        </>
       )}
       <button className="btn-settings" onClick={onHighlights}>✦ Highlights</button>
       <button className="btn-settings" onClick={onSettings}>⚙ Settings</button>
