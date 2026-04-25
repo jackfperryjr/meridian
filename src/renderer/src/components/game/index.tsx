@@ -75,10 +75,11 @@ function HandDisplay() {
 type LichStatus = 'stopped' | 'starting' | 'ready' | 'error'
 
 export function StatusBar({
-  status, onDisconnect, onStartLich, lichStatus, lichLog,
+  status, charName, onDisconnect, onStartLich, lichStatus, lichLog,
   showLichLog, onToggleLichLog, onSettings, onHighlights
 }: {
   status:          ConnectionStatus
+  charName:        string
   onDisconnect:    () => void
   onStartLich:     () => void
   lichStatus:      LichStatus
@@ -97,6 +98,7 @@ export function StatusBar({
   return (
     <div className="status-bar">
       <span className="app-title">Meridian</span>
+      {charName && <span className="status-char-name">{charName}</span>}
       <span className={`connection-status status-${status}`}>{status}</span>
 
       {status === 'connected' && (

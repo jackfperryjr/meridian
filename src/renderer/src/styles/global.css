@@ -87,7 +87,6 @@ body {
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-shell);
-  border-right: 3px solid var(--border);
 }
 
 .game-output-wrap {
@@ -119,6 +118,14 @@ body {
   color: #c0d0ff;
   text-shadow: 0 0 8px rgba(192, 208, 255, 0.4), 2px 2px 0 #060a18;
   user-select: none;
+}
+
+.status-char-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: .04em;
+  opacity: 0.9;
 }
 
 .connection-status {
@@ -219,8 +226,7 @@ body {
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .panel-sidebar {
   flex: 1;
-  max-width: 280px;
-  min-width: 180px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
@@ -905,10 +911,14 @@ body {
   cursor: ns-resize;
   background: transparent;
   border-top: 1px solid var(--border-soft);
-  transition: background .1s;
+  transition: background .15s;
   flex-shrink: 0;
 }
 .panel-resize-handle:hover { background: var(--accent-dim); }
+.panel-resize-handle-top {
+  border-top: none;
+  border-bottom: 1px solid var(--border-soft);
+}
 
 /* ── Room panel ──────────────────────────────────────────────────────────── */
 .room-panel { display: flex; flex-direction: column; gap: 6px; }
@@ -953,15 +963,16 @@ body {
 
 /* ── Column resize handle ────────────────────────────────────────────────── */
 .col-resize-handle {
-  width: 5px;
+  width: 6px;
   cursor: col-resize;
   background: transparent;
   flex-shrink: 0;
-  border-left: 3px solid var(--border);
-  transition: background .1s;
+  border-left: 2px solid var(--border);
+  border-right: 2px solid var(--border);
+  transition: background .15s, border-color .15s;
   z-index: 10;
 }
-.col-resize-handle:hover { background: var(--accent-dim); border-left-color: var(--border-accent); }
+.col-resize-handle:hover { background: var(--accent-dim); border-left-color: var(--border-accent); border-right-color: var(--border-accent); }
 
 /* ── Vital numeric display ───────────────────────────────────────────────── */
 /* ── Combat panel ────────────────────────────────────────────────────────── */
@@ -1034,12 +1045,13 @@ body {
 .hand-label { color: var(--accent); flex-shrink: 0; }
 .hand-item  { color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 
-/* ── Version label ───────────────────────────────────────────────────────── */
-.app-version-label {
-  position: fixed; bottom: 6px; right: 10px; z-index: 10;
-  font-size: 10px; font-family: var(--font-ui);
-  color: var(--text-muted);
-  pointer-events: none; user-select: none;
+/* ── Timestamps ──────────────────────────────────────────────────────────── */
+.game-timestamp { color: var(--text-dim); font-size: 0.85em; user-select: none; }
+
+/* ── Settings version label ──────────────────────────────────────────────── */
+.settings-version {
+  font-size: 11px; color: var(--text-muted);
+  margin-right: auto;
 }
 
 /* ── Update banner ────────────────────────────────────────────────────────── */

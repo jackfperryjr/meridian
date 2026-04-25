@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Provider, useSetAtom, useAtomValue } from 'jotai'
 import { useGameConnection }  from './hooks/useGameConnection'
-import { GameOutput, setHighlights, setSendFn } from './components/game/GameOutput'
+import { GameOutput, setHighlights, setSendFn, setShowTimestamps, setOutputBuffer } from './components/game/GameOutput'
 import { CommandInput, StatusBar } from './components/game'
 import { LoginFlow }          from './components/ui/LoginFlow'
 import { SettingsModal }      from './components/ui/SettingsModal'
@@ -33,35 +33,29 @@ function renderPanel(id: PanelId) {
 
 // ── Horizontal resize between game col and sidebar ────────────────────────────
 function ColResize({ onDrag }: { onDrag: (dx: number) => void }) {
-  const dragging = useRef(false)
-  const lastX    = useRef(0)
+  const lastX   = useRef(0)
+  const onDragRef = useRef(onDrag)
+  useEffect(() => { onDragRef.current = onDrag }, [onDrag])
 
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
-    dragging.current = true
-    lastX.current    = e.clientX
-    document.body.style.cursor    = 'col-resize'
+    lastX.current = e.clientX
+    document.body.style.cursor     = 'col-resize'
     document.body.style.userSelect = 'none'
-  }
 
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragging.current) return
-      onDrag(e.clientX - lastX.current)
-      lastX.current = e.clientX
+    const move = (ev: MouseEvent) => {
+      onDragRef.current(ev.clientX - lastX.current)
+      lastX.current = ev.clientX
     }
-    const onUp = () => {
-      dragging.current = false
-      document.body.style.cursor    = ''
+    const up = () => {
+      document.body.style.cursor     = ''
       document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup',   up)
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup',  onUp)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup',  onUp)
-    }
-  }, [onDrag])
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup',   up)
+  }
 
   return <div className="col-resize-handle" onMouseDown={onMouseDown} />
 }
@@ -87,7 +81,7 @@ function LichLogDrawer({ lines, onClose }: { lines: string[]; onClose: () => voi
 }
 
 // ── Game layout ───────────────────────────────────────────────────────────────
-function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
+function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: string; onReturnToLogin: () => void; onOpenSettings: () => void }) {
   const { status, disconnect, send } = useGameConnection()
   // Register send fn for clickable links
   useEffect(() => { setSendFn(send) }, [send])
@@ -97,7 +91,6 @@ function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
   const [lichLog,        setLichLog]        = useState<string[]>([])
   const lichMsgs = useAtomValue(lichMsgAtom)
   const [showLog,        setShowLog]        = useState(false)
-  const [showSettings,   setShowSettings]   = useState(false)
   const [showHighlights, setShowHighlights] = useState(false)
   const [sidebarWidth,   setSidebarWidth]   = useState<number | null>(null)
   const mainAreaRef = useRef<HTMLDivElement>(null)
@@ -119,7 +112,9 @@ function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
       const st = s as Record<string, unknown>
       if (st.fontSize)   document.documentElement.style.setProperty('--font-size-game', `${st.fontSize}px`)
       if (st.fontFamily) document.documentElement.style.setProperty('--font-game', `'${st.fontFamily}', monospace`)
-      if (st.theme)      applyTheme(st.theme as string)
+      if (st.theme)            applyTheme(st.theme as string)
+      if (st.timestamps)       setShowTimestamps(st.timestamps as boolean)
+      if (st.outputBufferSize) setOutputBuffer(st.outputBufferSize as number)
       const hls = st.highlights as never[] | undefined
       if (hls && hls.length > 0) {
         setHighlights(hls)
@@ -152,7 +147,7 @@ function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
   const handleStartLich = async () => {
     const s  = await window.dr.settings.getAll()
     const st = s as Record<string, unknown>
-    if (!st.lichPath) { setShowSettings(true); return }
+    if (!st.lichPath) { onOpenSettings(); return }
     const accounts = (st.accounts ?? []) as { name: string; lastCharacter?: string }[]
     const lastChar  = accounts.find(a => a.name === st.lastAccount)?.lastCharacter
     if (!lastChar) { alert('Could not determine character name.'); return }
@@ -174,13 +169,14 @@ function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
     <div className="app-shell">
       <StatusBar
         status={status}
+        charName={charName}
         onDisconnect={disconnect}
         onStartLich={handleStartLich}
         lichStatus={lichStatus}
         lichLog={lichLog}
         showLichLog={showLog}
         onToggleLichLog={() => setShowLog(v => !v)}
-        onSettings={() => setShowSettings(true)}
+        onSettings={onOpenSettings}
         onHighlights={() => setShowHighlights(true)}
       />
       {showLog && <LichLogDrawer lines={lichLog} onClose={() => setShowLog(false)} />}
@@ -196,7 +192,6 @@ function GameLayout({ onReturnToLogin }: { onReturnToLogin: () => void }) {
         <ColResize onDrag={handleColDrag} />
         <PanelSidebar renderPanel={renderPanel} sidebarWidth={sidebarWidth} />
       </div>
-      {showSettings   && <SettingsModal   onClose={() => setShowSettings(false)} />}
       {showHighlights && <HighlightsModal onClose={handleHighlightsClose} />}
       {status === 'disconnected' && (
         <div className="disconnect-overlay">
@@ -225,12 +220,12 @@ function UpdateBanner({ version, ready }: { version: string; ready: boolean }) {
 
 function AppInner() {
   const [inGame,        setInGame]        = useState(false)
+  const [charName,      setCharName]      = useState('')
+  const [showSettings,  setShowSettings]  = useState(false)
   const [updateVersion, setUpdateVersion] = useState('')
   const [updateReady,   setUpdateReady]   = useState(false)
-  const [appVersion,    setAppVersion]    = useState('')
 
   useEffect(() => {
-    window.dr.app.getVersion().then(setAppVersion)
     const unsubs = [
       window.dr.updater.onAvailable((v: string) => setUpdateVersion(v)),
       window.dr.updater.onReady(()              => setUpdateReady(true))
@@ -242,14 +237,10 @@ function AppInner() {
     <>
       {updateVersion && <UpdateBanner version={updateVersion} ready={updateReady} />}
       {!inGame
-        ? <LoginFlow onEnterGame={() => setInGame(true)} />
-        : <GameLayout onReturnToLogin={() => setInGame(false)} />
+        ? <LoginFlow onEnterGame={name => { setCharName(name); setInGame(true) }} onOpenSettings={() => setShowSettings(true)} />
+        : <GameLayout charName={charName} onReturnToLogin={() => { setCharName(''); setInGame(false) }} onOpenSettings={() => setShowSettings(true)} />
       }
-      {appVersion && (
-        <div className="app-version-label">
-          {appVersion === '0.0.0' ? 'dev' : `v${appVersion}`}
-        </div>
-      )}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>
   )
 }

@@ -1,37 +1,49 @@
 import { useState, useEffect } from 'react'
 import { THEMES } from '../../lib/themes'
+import { setShowTimestamps, setOutputBuffer } from '../game/GameOutput'
 
 interface SettingsModalProps {
   onClose: () => void
 }
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
-  const [lichPath,   setLichPath]   = useState('')
-  const [fontSize,   setFontSize]   = useState(13)
-  const [fontFamily, setFontFamily] = useState('Cascadia Code')
-  const [theme,      setTheme]      = useState('meridian')
-  const [saved,      setSaved]      = useState(false)
+  const [lichPath,        setLichPath]        = useState('')
+  const [fontSize,        setFontSize]        = useState(13)
+  const [fontFamily,      setFontFamily]      = useState('Cascadia Code')
+  const [theme,           setTheme]           = useState('meridian')
+  const [timestamps,      setTimestamps]      = useState(false)
+  const [outputBufferSize, setOutputBufferSize] = useState(5000)
+  const [version,         setVersion]         = useState('')
+  const [saved,           setSaved]           = useState(false)
 
   useEffect(() => {
+    window.dr.app.getVersion().then(setVersion)
     window.dr.settings.getAll().then(s => {
-      setLichPath((s as Record<string,unknown>).lichPath as string || '')
-      setFontSize((s as Record<string,unknown>).fontSize as number || 13)
-      setFontFamily((s as Record<string,unknown>).fontFamily as string || 'Cascadia Code')
-      setTheme((s as Record<string,unknown>).theme as string || 'meridian')
+      const st = s as Record<string, unknown>
+      setLichPath(st.lichPath as string || '')
+      setFontSize(st.fontSize as number || 13)
+      setFontFamily(st.fontFamily as string || 'Cascadia Code')
+      setTheme(st.theme as string || 'meridian')
+      setTimestamps(st.timestamps as boolean || false)
+      setOutputBufferSize(st.outputBufferSize as number || 5000)
     })
   }, [])
 
   const handleSave = async () => {
-    await window.dr.settings.patch({ lichPath, fontSize, fontFamily, theme } as Record<string,unknown>)
+    await window.dr.settings.patch({
+      lichPath, fontSize, fontFamily, theme, timestamps, outputBufferSize
+    } as Record<string, unknown>)
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
-    // Apply theme immediately
     const { applyTheme } = await import('../../lib/themes')
     applyTheme(theme)
-    // Apply font immediately
     document.documentElement.style.setProperty('--font-game', fontFamily)
     document.documentElement.style.setProperty('--font-size-game', fontSize + 'px')
+    setShowTimestamps(timestamps)
+    setOutputBuffer(outputBufferSize)
   }
+
+  const versionLabel = !version || version === '0.0.0' ? 'dev' : `v${version}`
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -70,7 +82,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                   }}
                   onClick={() => setTheme(t.id)}
                 >
-                  {/* Mini color strip */}
                   <div style={{ display: 'flex', gap: 2, marginBottom: 5 }}>
                     {['--health-color','--mana-color','--stamina-color','--accent','--color-roomname'].map(k => (
                       <div key={k} style={{ flex:1, height:4, borderRadius:2, background: t.vars[k] }} />
@@ -118,10 +129,33 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 </span>
               </div>
             </label>
+            <label className="settings-row">
+              <span className="settings-label">Timestamps</span>
+              <input
+                type="checkbox"
+                checked={timestamps}
+                onChange={e => setTimestamps(e.target.checked)}
+                style={{ width: 'auto' }}
+              />
+            </label>
+            <label className="settings-row">
+              <span className="settings-label">Output buffer</span>
+              <select
+                className="settings-input"
+                value={outputBufferSize}
+                onChange={e => setOutputBufferSize(Number(e.target.value))}
+              >
+                <option value={1000}>1,000 lines</option>
+                <option value={2500}>2,500 lines</option>
+                <option value={5000}>5,000 lines</option>
+                <option value={10000}>10,000 lines</option>
+              </select>
+            </label>
           </div>
         </div>
 
         <div className="modal-footer">
+          <span className="settings-version">{versionLabel}</span>
           <button className="login-btn-secondary" onClick={onClose}>Cancel</button>
           <button className="login-btn" style={{ minWidth: 80 }} onClick={handleSave}>
             {saved ? '✓ Saved' : 'Save'}
