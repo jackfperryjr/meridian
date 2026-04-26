@@ -39,7 +39,18 @@ contextBridge.exposeInMainWorld('dr', {
     getStatus:  ()          => ipcRenderer.invoke('game:get-status'),
     disconnect: ()          => ipcRenderer.invoke('game:disconnect'),
     send:       (d: string) => ipcRenderer.invoke('game:send', d),
-    onData:         (cb: (r: string) => void) => { const h = (_e: unknown, r: string) => cb(r); ipcRenderer.on('game:data', h);         return () => ipcRenderer.removeListener('game:data', h) },
+    // Use module-level tracking so React Strict Mode's double-mount never leaves
+    // two listeners alive simultaneously — each new registration evicts the old one.
+    onData: (() => {
+      let _h: ((_e: unknown, r: string) => void) | null = null
+      return (cb: (r: string) => void) => {
+        if (_h) { ipcRenderer.removeListener('game:data', _h); _h = null }
+        const h = (_e: unknown, r: string) => cb(r)
+        _h = h
+        ipcRenderer.on('game:data', h)
+        return () => { ipcRenderer.removeListener('game:data', h); if (_h === h) _h = null }
+      }
+    })(),
     onConnected:    (cb: () => void)           => {                                               ipcRenderer.on('game:connected', cb);    return () => ipcRenderer.removeListener('game:connected', cb) },
     onDisconnected: (cb: () => void)           => {                                               ipcRenderer.on('game:disconnected', cb); return () => ipcRenderer.removeListener('game:disconnected', cb) },
     onError:        (cb: (e: string) => void)  => { const h = (_e: unknown, e: string) => cb(e); ipcRenderer.on('game:error', h);         return () => ipcRenderer.removeListener('game:error', h) }

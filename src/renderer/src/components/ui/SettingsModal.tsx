@@ -13,8 +13,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [theme,           setTheme]           = useState('meridian')
   const [timestamps,      setTimestamps]      = useState(false)
   const [outputBufferSize, setOutputBufferSize] = useState(5000)
+  const [functionKeys,    setFunctionKeys]    = useState<Record<string, string>>({})
   const [version,         setVersion]         = useState('')
   const [saved,           setSaved]           = useState(false)
+
+  const FK_KEYS = ['F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12']
+
+  const setFk = (key: string, cmd: string) =>
+    setFunctionKeys(prev => ({ ...prev, [key]: cmd }))
 
   useEffect(() => {
     window.dr.app.getVersion().then(setVersion)
@@ -26,15 +32,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setTheme(st.theme as string || 'meridian')
       setTimestamps(st.timestamps as boolean || false)
       setOutputBufferSize(st.outputBufferSize as number || 5000)
+      setFunctionKeys((st.functionKeys as Record<string, string>) || {})
     })
   }, [])
 
   const handleSave = async () => {
     await window.dr.settings.patch({
-      lichPath, fontSize, fontFamily, theme, timestamps, outputBufferSize
+      lichPath, fontSize, fontFamily, theme, timestamps, outputBufferSize, functionKeys
     } as Record<string, unknown>)
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
+    window.dispatchEvent(new CustomEvent('settings:saved'))
     const { applyTheme } = await import('../../lib/themes')
     applyTheme(theme)
     document.documentElement.style.setProperty('--font-game', fontFamily)
@@ -151,6 +159,23 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <option value={10000}>10,000 lines</option>
               </select>
             </label>
+          </div>
+          <div className="settings-section">
+            <div className="settings-section-label">Function Keys</div>
+            <div className="fk-grid">
+              {FK_KEYS.map(key => (
+                <label key={key} className="fk-row">
+                  <span className="fk-label">{key}</span>
+                  <input
+                    className="settings-input settings-input-mono"
+                    type="text"
+                    placeholder="command"
+                    value={functionKeys[key] ?? ''}
+                    onChange={e => setFk(key, e.target.value)}
+                  />
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 
