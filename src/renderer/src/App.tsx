@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Provider, useSetAtom, useAtomValue } from 'jotai'
 import { useGameConnection }  from './hooks/useGameConnection'
 import { GameOutput, setHighlights, setSendFn, setShowTimestamps, setOutputBuffer } from './components/game/GameOutput'
-import { CommandInput, StatusBar } from './components/game'
+import { CommandInput, StatusBar, WindowControls } from './components/game'
 import { LoginFlow }          from './components/ui/LoginFlow'
 import { SettingsModal }      from './components/ui/SettingsModal'
 import { HighlightsModal }    from './components/ui/HighlightsModal'
@@ -15,7 +15,10 @@ import {
 } from './components/layout/PanelContent'
 import { echoCommandAtom, lichMsgAtom } from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
+import { IconArrowDownTray, IconCheckCircle, IconExclamationTriangle } from './components/ui/Icons'
 import './styles/global.css'
+
+document.body.dataset.platform = window.dr.app.platform
 
 function renderPanel(id: PanelId) {
   switch (id) {
@@ -110,22 +113,19 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
   // Load settings + apply theme/font/highlights on mount
   useEffect(() => {
     window.dr.settings.getAll().then(s => {
-      const st = s as Record<string, unknown>
-      if (st.fontSize)   document.documentElement.style.setProperty('--font-size-game', `${st.fontSize}px`)
-      if (st.fontFamily) document.documentElement.style.setProperty('--font-game', `'${st.fontFamily}', monospace`)
-      if (st.theme)            applyTheme(st.theme as string)
-      if (st.timestamps)       setShowTimestamps(st.timestamps as boolean)
-      if (st.outputBufferSize) setOutputBuffer(st.outputBufferSize as number)
-      if (st.functionKeys) setFunctionKeys(st.functionKeys as Record<string, string>)
-      const hls = st.highlights as never[] | undefined
-      if (hls && hls.length > 0) {
-        setHighlights(hls)
+      if (s.fontSize)   document.documentElement.style.setProperty('--font-size-game', `${s.fontSize}px`)
+      if (s.fontFamily) document.documentElement.style.setProperty('--font-game', `'${s.fontFamily}', monospace`)
+      if (s.theme)            applyTheme(s.theme)
+      if (s.timestamps)       setShowTimestamps(s.timestamps)
+      if (s.outputBufferSize) setOutputBuffer(s.outputBufferSize)
+      if (s.functionKeys)     setFunctionKeys(s.functionKeys)
+      if (s.highlights && s.highlights.length > 0) {
+        setHighlights(s.highlights as never[])
       } else {
         setHighlights(DEFAULT_HIGHLIGHTS as never[])
-        window.dr.settings.patch({ highlights: DEFAULT_HIGHLIGHTS } as Record<string, unknown>)
+        window.dr.settings.patch({ highlights: DEFAULT_HIGHLIGHTS as unknown[] })
       }
     })
-    window.dr.lich.getLog().then(lines => { if (lines.length > 0) setLichLog(lines) })
     window.dr.lich.detectPath().then(() => {})
   }, [])
 
@@ -156,8 +156,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
   useEffect(() => {
     const onSaved = () => {
       window.dr.settings.getAll().then(s => {
-        const st = s as unknown as Record<string, unknown>
-        if (st.functionKeys) setFunctionKeys(st.functionKeys as Record<string, string>)
+        if (s.functionKeys) setFunctionKeys(s.functionKeys)
       })
     }
     window.addEventListener('settings:saved', onSaved)
@@ -167,17 +166,14 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
   const handleHighlightsClose = () => {
     setShowHighlights(false)
     window.dr.settings.getAll().then(s => {
-      const st = s as Record<string, unknown>
-      if (st.highlights) setHighlights(st.highlights as never[])
+      if (s.highlights) setHighlights(s.highlights as never[])
     })
   }
 
   const handleStartLich = async () => {
-    const s  = await window.dr.settings.getAll()
-    const st = s as Record<string, unknown>
-    if (!st.lichPath) { onOpenSettings(); return }
-    const accounts = (st.accounts ?? []) as { name: string; lastCharacter?: string }[]
-    const lastChar  = accounts.find(a => a.name === st.lastAccount)?.lastCharacter
+    const s = await window.dr.settings.getAll()
+    if (!s.lichPath) { onOpenSettings(); return }
+    const lastChar = s.accounts.find(a => a.name === s.lastAccount)?.lastCharacter
     if (!lastChar) { alert('Could not determine character name.'); return }
     setLichLog([])
     window.dr.lich.launchSidecar(lastChar)
@@ -211,6 +207,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
       <div className="main-area" ref={mainAreaRef}>
         <div className="game-col">
           <main className="game-output-wrap" onClick={() => {
+            if (window.getSelection()?.toString()) return
             document.querySelector<HTMLInputElement>('.command-input')?.focus()
           }}>
             <GameOutput />
@@ -240,14 +237,15 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
 function UpdateBanner({ version, ready, error }: { version: string; ready: boolean; error: string }) {
   if (error) return (
     <div className="update-banner update-banner-error">
+      <IconExclamationTriangle size={14} />
       Update failed: {error}
     </div>
   )
   return (
     <div className="update-banner">
       {ready
-        ? <>Update v{version} ready — <button className="update-banner-btn" onClick={() => window.dr.updater.install()}>Restart to install</button></>
-        : <>Downloading update v{version}…</>
+        ? <><IconCheckCircle size={14} /> v{version} ready — <button className="update-banner-btn" onClick={() => window.dr.updater.install()}>Restart to install</button></>
+        : <><IconArrowDownTray size={14} /> Downloading v{version}…</>
       }
     </div>
   )
@@ -272,6 +270,7 @@ function AppInner() {
 
   return (
     <>
+      {!inGame && <div className="app-titlebar-shell"><WindowControls /></div>}
       {(updateVersion || updateError) && <UpdateBanner version={updateVersion} ready={updateReady} error={updateError} />}
       {!inGame
         ? <LoginFlow onEnterGame={name => { setCharName(name); setInGame(true) }} onOpenSettings={() => setShowSettings(true)} />

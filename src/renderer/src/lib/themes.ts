@@ -178,36 +178,36 @@ export const THEMES: Theme[] = [
     }
   },
   {
-    id: 'ironforge',
-    name: 'Ironforge',
+    id: 'discord',
+    name: 'Discord',
     vars: {
-      '--bg-shell':      '#0a0a08',
-      '--bg-panel':      '#131310',
-      '--bg-input':      '#1a1a16',
-      '--bg-sidebar':    '#0f0f0c',
-      '--border':        '#303028',
-      '--border-soft':   '#222220',
-      '--border-accent': '#585840',
-      '--text-main':     '#c8c4a8',
-      '--text-dim':      '#606050',
-      '--text-bright':   '#e8e4c8',
-      '--text-muted':    '#888870',
-      '--accent':        '#b89040',
-      '--accent-glow':   'rgba(184,144,64,0.18)',
-      '--accent-dim':    '#403010',
-      '--color-roomname':'#d4a840',
-      '--color-roomdesc':'#908870',
-      '--color-speech':  '#90c8a0',
-      '--color-whisper': '#a8a880',
-      '--color-thought': '#c8a060',
-      '--color-warning': '#e06030',
-      '--color-bonus':   '#80b840',
-      '--color-penalty': '#c04030',
-      '--health-color':  '#b03020',
-      '--mana-color':    '#3060b0',
-      '--stamina-color': '#508030',
-      '--spirit-color':  '#806030',
-      '--bg-theme-image': 'repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 4px)',
+      '--bg-shell':      '#1e1f22',
+      '--bg-panel':      '#313338',
+      '--bg-input':      '#383a40',
+      '--bg-sidebar':    '#2b2d31',
+      '--border':        '#1e1f22',
+      '--border-soft':   '#232428',
+      '--border-accent': '#5865f2',
+      '--text-main':     '#dbdee1',
+      '--text-dim':      '#80848e',
+      '--text-bright':   '#ffffff',
+      '--text-muted':    '#949ba4',
+      '--accent':        '#5865f2',
+      '--accent-glow':   'rgba(88,101,242,0.22)',
+      '--accent-dim':    '#2c2f6b',
+      '--color-roomname':'#ffffff',
+      '--color-roomdesc':'#b5bac1',
+      '--color-speech':  '#23a559',
+      '--color-whisper': '#949cf7',
+      '--color-thought': '#c678dd',
+      '--color-warning': '#f23f43',
+      '--color-bonus':   '#23a559',
+      '--color-penalty': '#f23f43',
+      '--health-color':  '#f23f43',
+      '--mana-color':    '#5865f2',
+      '--stamina-color': '#23a559',
+      '--spirit-color':  '#9b59b6',
+      '--bg-theme-image': 'none',
     }
   },
   {
@@ -251,7 +251,5 @@ export function applyTheme(id: string): void {
   for (const [key, val] of Object.entries(theme.vars)) {
     root.style.setProperty(key, val)
   }
-  // Apply background image to body
-  const img = theme.vars['--bg-theme-image'] ?? 'none'
-  document.body.style.backgroundImage = img
+  document.body.style.backgroundImage = theme.vars['--bg-theme-image'] ?? 'none'
 }

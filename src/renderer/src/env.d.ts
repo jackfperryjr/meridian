@@ -3,11 +3,17 @@ interface SGEInstance   { code: string; name: string }
 interface SavedAccount  { name: string; lastCharacter?: string }
 
 interface AppSettings {
-  lichPath:    string
-  accounts:    SavedAccount[]
-  lastAccount: string
-  fontSize:    number
-  fontFamily:  string
+  lichPath:         string
+  accounts:         SavedAccount[]
+  lastAccount:      string
+  fontSize:         number
+  fontFamily:       string
+  theme:            string
+  timestamps:       boolean
+  outputBufferSize: number
+  functionKeys:     Record<string, string>
+  highlights:       unknown[]
+  passwords:        Record<string, string>
 }
 
 interface DrAPI {
@@ -39,6 +45,14 @@ interface DrAPI {
   }
   app: {
     getVersion: () => Promise<string>
+    platform:   string
+  }
+  window: {
+    minimize:         () => Promise<void>
+    toggleMaximize:   () => Promise<void>
+    close:            () => Promise<void>
+    isMaximized:      () => Promise<boolean>
+    onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
   }
   updater: {
     check:       () => Promise<void>

@@ -25,21 +25,20 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   useEffect(() => {
     window.dr.app.getVersion().then(setVersion)
     window.dr.settings.getAll().then(s => {
-      const st = s as Record<string, unknown>
-      setLichPath(st.lichPath as string || '')
-      setFontSize(st.fontSize as number || 13)
-      setFontFamily(st.fontFamily as string || 'Cascadia Code')
-      setTheme(st.theme as string || 'meridian')
-      setTimestamps(st.timestamps as boolean || false)
-      setOutputBufferSize(st.outputBufferSize as number || 5000)
-      setFunctionKeys((st.functionKeys as Record<string, string>) || {})
+      setLichPath(s.lichPath || '')
+      setFontSize(s.fontSize || 13)
+      setFontFamily(s.fontFamily || 'Cascadia Code')
+      setTheme(s.theme || 'meridian')
+      setTimestamps(s.timestamps || false)
+      setOutputBufferSize(s.outputBufferSize || 5000)
+      setFunctionKeys(s.functionKeys || {})
     })
   }, [])
 
   const handleSave = async () => {
     await window.dr.settings.patch({
       lichPath, fontSize, fontFamily, theme, timestamps, outputBufferSize, functionKeys
-    } as Record<string, unknown>)
+    })
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
     window.dispatchEvent(new CustomEvent('settings:saved'))
