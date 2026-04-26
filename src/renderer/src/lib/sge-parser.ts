@@ -42,7 +42,6 @@ export type VitalField = 'health' | 'mana' | 'stamina' | 'spirit' | 'encumbrance
 // ── Module-level stream state ──────────────────────────────────────────────────
 let _stream:     StreamId = 'main'
 let _inRoomDesc  = false
-let _inRoomName  = false
 let _inExits     = false
 let _suppressComp    = false  // swallow room objs/players components
 let _suppressExits   = false  // suppress plain-text exits after XML exits parsed
@@ -57,7 +56,6 @@ let _inInitialInventory = false  // suppress initial container dump until --- se
 export function resetParser(): void {
   _stream             = 'main'
   _inRoomDesc         = false
-  _inRoomName         = false
   _inExits            = false
   _suppressComp       = false
   _suppressExits      = false
@@ -101,7 +99,7 @@ export function parseLine(raw: string): GameEvent[] {
     // Suppress output when inside special components
     if (_inExpSkill)      return  // exp data — only expSkill event matters
     if (_suppressComp)    return  // room objs/players — swallowed
-    if (_inInitialInventory) { buf = ''; return }  // login-phase inventory container
+    if (_inInitialInventory || (_preXmlPhase && _stream === 'inv')) { buf = ''; return }
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return }
     if (_inExits)    { _roomExitBuf += ' ' + text; return }
     events.push({ type: 'text', text, styles: s, stream: _stream, links: ls })
@@ -120,6 +118,14 @@ export function parseLine(raw: string): GameEvent[] {
           return events  // swallow container headers, item lines, Empty, Obvious paths
         }
       }
+    }
+    // Lich ENC sync: silent encumbrance push from our periodic eval query
+    if (text.startsWith('MERIDIAN_ENC:')) {
+      const encText = text.slice('MERIDIAN_ENC:'.length).trim()
+      if (encText && encText !== 'nil') {
+        events.push({ type: 'vitals', field: 'encumbrance', value: 0, text: encText })
+      }
+      return events  // never show this in game output
     }
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return events }
     if (_inExits)    { _roomExitBuf += ' ' + text; return events }
@@ -356,6 +362,7 @@ export function parseLine(raw: string): GameEvent[] {
           inv: 'inv', familiar: 'familiar', speech: 'speech'
         }
         _stream = map[id] ?? 'main'
+        if (_preXmlPhase && _stream === 'inv') _inInitialInventory = true
         break
       }
       case '/stream':
@@ -366,11 +373,11 @@ export function parseLine(raw: string): GameEvent[] {
 
       // ── Room name ─────────────────────────────────────────────────────────
       case 'roomname':
-        flush(); _inRoomName = true; styles = [{ preset: 'roomname' }]
+        flush(); styles = [{ preset: 'roomname' }]
         break
       case '/roomname': {
         const name = buf.trim(); buf = ''
-        _inRoomName = false; styles = []
+        styles = []
         if (name) {
           events.push({ type: 'roomName', name })
           // Don't emit as text — room panel handles display
@@ -411,9 +418,10 @@ export function parseLine(raw: string): GameEvent[] {
           mana:          'mana',    mana2:          'mana',    concentration: 'mana',
           stamina:       'stamina', stamina2:       'stamina', fatigue:       'stamina', fatigue2: 'stamina',
           spirit:        'spirit',  spirit2:        'spirit',
+          encumbar:      'encumbrance',
         }
         const field = VITAL_MAP[id]
-        if (field) events.push({ type: 'vitals', field, value, max: 100 })
+        if (field) events.push({ type: 'vitals', field, value, max: 100, text: attrs['text'] })
         break
       }
 
@@ -440,14 +448,23 @@ export function parseLine(raw: string): GameEvent[] {
       }
 
       // ── Indicator ─────────────────────────────────────────────────────────
-      case 'indicator':
+      case 'indicator': {
         flush()
-        events.push({
-          type: 'indicator',
-          id:   (attrs['id'] ?? '').replace(/^Icon/, '').toLowerCase(),
-          active: attrs['visible'] === 'y'
-        })
+        const indId = (attrs['id'] ?? '').replace(/^Icon/, '').toLowerCase()
+        if (indId === 'encumbrance' && attrs['value'] !== undefined) {
+          // <indicator id="IconENCUMBRANCE" value="0-11"/>
+          const ENC_TEXT = ['None', 'Light Burden', 'Burden', 'Heavy Burden',
+            'Very Heavy Burden', 'Overburdened', 'Heavily Overburdened',
+            'Very Heavily Overburdened', 'Extremely Overburdened',
+            'Severely Overburdened', 'Severely Overburdened', 'Severely Overburdened']
+          const v = parseInt(attrs['value'], 10)
+          events.push({ type: 'vitals', field: 'encumbrance', value: v, max: 11,
+            text: ENC_TEXT[v] ?? '' })
+        } else {
+          events.push({ type: 'indicator', id: indId, active: attrs['visible'] === 'y' })
+        }
         break
+      }
 
       // ── Spell ─────────────────────────────────────────────────────────────
       case 'spell':
@@ -487,7 +504,13 @@ export function parseLine(raw: string): GameEvent[] {
       case 'popbold':
       case '/pushbold': flush(); styles = []; break
 
-      // ── Login-phase inventory container — suppress all contents ─────────────
+      // ── Login-phase inventory dump — suppress bag container and inv stream ────
+      case 'exposecontainer': {
+        // <exposeContainer> always precedes the bag dump at login
+        flush()
+        if (_preXmlPhase) _inInitialInventory = true
+        break
+      }
       case 'container': {
         flush()
         if (_preXmlPhase) _inInitialInventory = true
@@ -495,7 +518,7 @@ export function parseLine(raw: string): GameEvent[] {
       }
       case '/container': {
         // Discard buffered text; keep _inInitialInventory true so plain-text
-        // lines after the container (Empty, Obvious paths:) are also suppressed
+        // lines after the container (Empty, Obvious paths:) stay suppressed
         // until the --- separator clears it.
         buf = ''
         styles = []
