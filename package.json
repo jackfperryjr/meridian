@@ -7,7 +7,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-vite build && electron-builder",
+    "build-ico": "node scripts/build-ico.js",
+    "package": "node scripts/build-ico.js && electron-vite build && electron-builder",
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
@@ -53,6 +54,7 @@
       "artifactName": "${productName}-${version}.${ext}"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": "nsis"
     },
     "mac": {

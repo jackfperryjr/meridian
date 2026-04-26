@@ -102,6 +102,20 @@ export function parseLine(raw: string): GameEvent[] {
     if (_inInitialInventory || (_preXmlPhase && _stream === 'inv')) { buf = ''; return }
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return }
     if (_inExits)    { _roomExitBuf += ' ' + text; return }
+    // Merge trailing text (e.g. ', "Hello."') onto the previous speech/whisper/thought event
+    // so that "You say, "Hello."" appears as one line and is fully captured in conv panel.
+    const last = events[events.length - 1]
+    const SPEECH_PRESETS = new Set(['speech', 'whisper', 'thought'])
+    if (last?.type === 'text' && last.stream === _stream &&
+        last.styles.some(st => SPEECH_PRESETS.has(st.preset ?? '')) &&
+        !s.some(st => SPEECH_PRESETS.has(st.preset ?? ''))) {
+      events[events.length - 1] = {
+        ...last,
+        text: last.text + text,
+        links: ls ? [...(last.links ?? []), ...ls] : last.links
+      }
+      return
+    }
     events.push({ type: 'text', text, styles: s, stream: _stream, links: ls })
   }
 

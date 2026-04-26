@@ -9,6 +9,7 @@ export interface AppSettings {
   fontSize:    number
   fontFamily:  string
   passwords:   Record<string, string>  // account name → base64 encrypted password
+  functionKeys: Record<string, string> // e.g. { F1: 'attack', F2: 'spell' }
 }
 
 const DEFAULTS: AppSettings = {
@@ -17,7 +18,8 @@ const DEFAULTS: AppSettings = {
   lastAccount: '',
   fontSize:    13,
   fontFamily:  'Cascadia Code',
-  passwords:   {}
+  passwords:   {},
+  functionKeys: {}
 }
 
 function settingsPath(): string {

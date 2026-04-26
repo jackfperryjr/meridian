@@ -21,6 +21,14 @@ const mkLine = (text: string, styles: OutputLine['styles'], stream: StreamId): O
   id: lineId++, text, styles, stream, timestamp: Date.now()
 })
 
+// Skip appending if the last line in the array is identical and was added within
+// 300 ms — catches protocol-level duplicates (e.g. double-fired IPC listeners).
+function appendDedup(lines: OutputLine[], line: OutputLine, max: number): OutputLine[] {
+  const last = lines[lines.length - 1]
+  if (last && last.text === line.text && line.timestamp - last.timestamp < 300) return lines
+  return [...lines.slice(-(max - 1)), line]
+}
+
 // Main game output (stream = 'main' + echoes)
 export const outputLinesAtom  = atom<OutputLine[]>([])
 
@@ -116,18 +124,19 @@ export const dispatchGameEventAtom = atom(
             // Don't echo atmo to main output — it clutters it
             break
           case 'speech':
-            set(convLinesAtom, [...get(convLinesAtom).slice(-199), line])
-            set(outputLinesAtom, [...get(outputLinesAtom).slice(-4999), line])
+            set(convLinesAtom, appendDedup(get(convLinesAtom), line, 200))
             break
           default:
-            set(outputLinesAtom, [...get(outputLinesAtom).slice(-4999), line])
+            set(outputLinesAtom, appendDedup(get(outputLinesAtom), line, 5000))
         }
         // Route hand content
         if (event.styles.some(s => s.preset === 'left'))  set(handsAtom, { ...get(handsAtom), left:  event.text.trim() })
         if (event.styles.some(s => s.preset === 'right')) set(handsAtom, { ...get(handsAtom), right: event.text.trim() })
-        // Also check for speech/whisper/thought styles and route to conv
+        // Also route main-stream speech/whisper/thought to conv panel.
+        // appendDedup handles the case where speech arrives in both the pushStream
+        // and the main stream, so only the first copy is kept.
         if (event.styles.some(s => ['speech','whisper','thought'].includes(s.preset ?? ''))) {
-          set(convLinesAtom, [...get(convLinesAtom).slice(-199), line])
+          set(convLinesAtom, appendDedup(get(convLinesAtom), line, 200))
         }
         break
       }

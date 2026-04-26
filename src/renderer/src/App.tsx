@@ -93,6 +93,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
   const [showLog,        setShowLog]        = useState(false)
   const [showHighlights, setShowHighlights] = useState(false)
   const [sidebarWidth,   setSidebarWidth]   = useState<number | null>(null)
+  const [functionKeys,   setFunctionKeys]   = useState<Record<string, string>>({})
   const mainAreaRef = useRef<HTMLDivElement>(null)
 
   // Merge in-game Lich script messages into the log drawer
@@ -115,6 +116,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
       if (st.theme)            applyTheme(st.theme as string)
       if (st.timestamps)       setShowTimestamps(st.timestamps as boolean)
       if (st.outputBufferSize) setOutputBuffer(st.outputBufferSize as number)
+      if (st.functionKeys) setFunctionKeys(st.functionKeys as Record<string, string>)
       const hls = st.highlights as never[] | undefined
       if (hls && hls.length > 0) {
         setHighlights(hls)
@@ -134,6 +136,32 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
       window.dr.lich.onLog((line: string) => setLichLog(prev => [...prev.slice(-199), line.trimEnd()]))
     ]
     return () => unsubs.forEach(fn => fn())
+  }, [])
+
+  // Function key hotkeys — re-register whenever bindings change
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!/^F\d{1,2}$/.test(e.key)) return
+      const cmd = functionKeys[e.key]?.trim()
+      if (!cmd) return
+      e.preventDefault()
+      echoCommand(cmd)
+      send(cmd)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [functionKeys, send, echoCommand])
+
+  // Reload function keys whenever settings are saved mid-session
+  useEffect(() => {
+    const onSaved = () => {
+      window.dr.settings.getAll().then(s => {
+        const st = s as unknown as Record<string, unknown>
+        if (st.functionKeys) setFunctionKeys(st.functionKeys as Record<string, string>)
+      })
+    }
+    window.addEventListener('settings:saved', onSaved)
+    return () => window.removeEventListener('settings:saved', onSaved)
   }, [])
 
   const handleHighlightsClose = () => {
@@ -182,7 +210,9 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
       {showLog && <LichLogDrawer lines={lichLog} onClose={() => setShowLog(false)} />}
       <div className="main-area" ref={mainAreaRef}>
         <div className="game-col">
-          <main className="game-output-wrap">
+          <main className="game-output-wrap" onClick={() => {
+            document.querySelector<HTMLInputElement>('.command-input')?.focus()
+          }}>
             <GameOutput />
           </main>
           <footer className="bottom-bar">
