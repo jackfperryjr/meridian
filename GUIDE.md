@@ -115,16 +115,15 @@ Shows your current location: the room name, description, and clickable exits. Cl
 
 Shows your four core stats as percentage bars:
 
-| Label | Stat      |
-|-------|-----------|
-| HP    | Health    |
-| MP    | Mana / Concentration |
-| SP    | Stamina   |
-| ST    | Spirit    |
+| Stat      |
+|-----------|
+| Health    |
+| Mana / Concentration |
+| Stamina   |
+| Spirit    |
 
 Below the bars:
 
-- **ENC** — Your current encumbrance level (e.g. *None*, *Light Burden*, *Heavy Burden*). Type `enc` in the command bar to refresh it.
 - **RT** badge — Appears when you are in roundtime, counting down in seconds.
 - **Indicator badges** — Game status flags (bleeding, stunned, prone, etc.) appear as small labels when active.
 

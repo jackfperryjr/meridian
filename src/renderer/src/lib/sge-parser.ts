@@ -37,12 +37,11 @@ export type GameEvent =
   | { type: 'cast_time'; expires: number }
   | { type: 'prompt';    time: number }
 
-export type VitalField = 'health' | 'mana' | 'stamina' | 'spirit' | 'encumbrance'
+export type VitalField = 'health' | 'mana' | 'stamina' | 'spirit'
 
 // ── Module-level stream state ──────────────────────────────────────────────────
 let _stream:     StreamId = 'main'
 let _inRoomDesc  = false
-let _inRoomName  = false
 let _inExits     = false
 let _suppressComp    = false  // swallow room objs/players components
 let _suppressExits   = false  // suppress plain-text exits after XML exits parsed
@@ -57,7 +56,6 @@ let _inInitialInventory = false  // suppress initial container dump until --- se
 export function resetParser(): void {
   _stream             = 'main'
   _inRoomDesc         = false
-  _inRoomName         = false
   _inExits            = false
   _suppressComp       = false
   _suppressExits      = false
@@ -101,7 +99,7 @@ export function parseLine(raw: string): GameEvent[] {
     // Suppress output when inside special components
     if (_inExpSkill)      return  // exp data — only expSkill event matters
     if (_suppressComp)    return  // room objs/players — swallowed
-    if (_inInitialInventory) { buf = ''; return }  // login-phase inventory container
+    if (_inInitialInventory || (_preXmlPhase && _stream === 'inv')) { buf = ''; return }
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return }
     if (_inExits)    { _roomExitBuf += ' ' + text; return }
     events.push({ type: 'text', text, styles: s, stream: _stream, links: ls })
@@ -178,12 +176,6 @@ export function parseLine(raw: string): GameEvent[] {
       }
       // else keep buffering
       return events
-    }
-
-    // Encumbrance plain-text line: "  Encumbrance : Heavy Burden"
-    const encMatch = text.match(/^\s*Encumbrance\s*:\s*(.+)/i)
-    if (encMatch) {
-      events.push({ type: 'vitals', field: 'encumbrance', value: 0, text: encMatch[1].trim() })
     }
 
     // Lich script output — route to lich stream so it can be styled/suppressed
@@ -356,6 +348,7 @@ export function parseLine(raw: string): GameEvent[] {
           inv: 'inv', familiar: 'familiar', speech: 'speech'
         }
         _stream = map[id] ?? 'main'
+        if (_preXmlPhase && _stream === 'inv') _inInitialInventory = true
         break
       }
       case '/stream':
@@ -366,11 +359,11 @@ export function parseLine(raw: string): GameEvent[] {
 
       // ── Room name ─────────────────────────────────────────────────────────
       case 'roomname':
-        flush(); _inRoomName = true; styles = [{ preset: 'roomname' }]
+        flush(); styles = [{ preset: 'roomname' }]
         break
       case '/roomname': {
         const name = buf.trim(); buf = ''
-        _inRoomName = false; styles = []
+        styles = []
         if (name) {
           events.push({ type: 'roomName', name })
           // Don't emit as text — room panel handles display
@@ -382,7 +375,7 @@ export function parseLine(raw: string): GameEvent[] {
       case 'vitals': {
         // <vitals health="83" mana="95" stamina="100" spirit="100" encumbrance="3"/>
         flush()
-        const validFields: VitalField[] = ['health','mana','stamina','spirit','encumbrance']
+        const validFields: VitalField[] = ['health','mana','stamina','spirit']
         for (const f of validFields) {
           if (attrs[f] !== undefined)
             events.push({ type: 'vitals', field: f, value: parseInt(attrs[f], 10), max: undefined })
@@ -396,7 +389,7 @@ export function parseLine(raw: string): GameEvent[] {
         const val   = parseInt(attrs['value'] ?? '0', 10)
         const max   = attrs['max'] !== undefined ? parseInt(attrs['max'], 10) : undefined
         const text  = attrs['text']
-        const valid: VitalField[] = ['health','mana','stamina','spirit','encumbrance']
+        const valid: VitalField[] = ['health','mana','stamina','spirit']
         if (valid.includes(field)) events.push({ type: 'vitals', field, value: val, max, text })
         break
       }
@@ -413,7 +406,7 @@ export function parseLine(raw: string): GameEvent[] {
           spirit:        'spirit',  spirit2:        'spirit',
         }
         const field = VITAL_MAP[id]
-        if (field) events.push({ type: 'vitals', field, value, max: 100 })
+        if (field) events.push({ type: 'vitals', field, value, max: 100, text: attrs['text'] })
         break
       }
 
@@ -440,14 +433,12 @@ export function parseLine(raw: string): GameEvent[] {
       }
 
       // ── Indicator ─────────────────────────────────────────────────────────
-      case 'indicator':
+      case 'indicator': {
         flush()
-        events.push({
-          type: 'indicator',
-          id:   (attrs['id'] ?? '').replace(/^Icon/, '').toLowerCase(),
-          active: attrs['visible'] === 'y'
-        })
+        const indId = (attrs['id'] ?? '').replace(/^Icon/, '').toLowerCase()
+        events.push({ type: 'indicator', id: indId, active: attrs['visible'] === 'y' })
         break
+      }
 
       // ── Spell ─────────────────────────────────────────────────────────────
       case 'spell':
@@ -487,7 +478,13 @@ export function parseLine(raw: string): GameEvent[] {
       case 'popbold':
       case '/pushbold': flush(); styles = []; break
 
-      // ── Login-phase inventory container — suppress all contents ─────────────
+      // ── Login-phase inventory dump — suppress bag container and inv stream ────
+      case 'exposecontainer': {
+        // <exposeContainer> always precedes the bag dump at login
+        flush()
+        if (_preXmlPhase) _inInitialInventory = true
+        break
+      }
       case 'container': {
         flush()
         if (_preXmlPhase) _inInitialInventory = true
@@ -495,7 +492,7 @@ export function parseLine(raw: string): GameEvent[] {
       }
       case '/container': {
         // Discard buffered text; keep _inInitialInventory true so plain-text
-        // lines after the container (Empty, Obvious paths:) are also suppressed
+        // lines after the container (Empty, Obvious paths:) stay suppressed
         // until the --- separator clears it.
         buf = ''
         styles = []

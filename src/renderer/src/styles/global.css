@@ -370,7 +370,7 @@ body {
 .vital-label {
   font-size: 14px;
   color: var(--text-muted);
-  width: 22px;
+  width: 56px;
   text-align: right;
   letter-spacing: .04em;
   font-family: var(--font-ui);
