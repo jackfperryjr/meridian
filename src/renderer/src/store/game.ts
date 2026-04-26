@@ -35,28 +35,11 @@ export const lichMsgAtom      = atom<string[]>([])
 export interface VitalState { value: number; max: number }
 
 export const vitalsAtom = atom<Record<VitalField, VitalState>>({
-  health:      { value: 100, max: 100 },
-  mana:        { value: 100, max: 100 },
-  stamina:     { value: 100, max: 100 },
-  spirit:      { value: 100, max: 100 },
-  encumbrance: { value: 0,   max: 4 }
+  health:  { value: 100, max: 100 },
+  mana:    { value: 100, max: 100 },
+  stamina: { value: 100, max: 100 },
+  spirit:  { value: 100, max: 100 },
 })
-
-const ENC_LABELS: Record<number, string> = {
-  0: 'None',
-  1: 'Light Burden',
-  2: 'Burden',
-  3: 'Heavy Burden',
-  4: 'Very Heavy Burden',
-  5: 'Overburdened',
-  6: 'Heavily Overburdened',
-}
-export function encLabel(value: number, serverText?: string): string {
-  if (serverText) return serverText
-  return ENC_LABELS[value] ?? `${value}`
-}
-
-export const encumbranceTextAtom = atom<string>('None')
 
 // ── Room ──────────────────────────────────────────────────────────────────────
 export interface RoomState { name: string; description: string; exits: string[] }
@@ -188,8 +171,6 @@ export const dispatchGameEventAtom = atom(
           ...prev,
           [event.field]: { value: event.value, max: event.max ?? prev[event.field].max }
         })
-        if (event.field === 'encumbrance')
-          set(encumbranceTextAtom, encLabel(event.value, event.text))
         break
       }
 

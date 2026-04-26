@@ -136,15 +136,6 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
     return () => unsubs.forEach(fn => fn())
   }, [])
 
-  // Poll Lich for encumbrance every 5 s — no-op when Lich isn't running
-  useEffect(() => {
-    if (lichStatus !== 'ready' || status !== 'connected') return
-    const id = setInterval(() => {
-      window.dr.game.send(';e respond "MERIDIAN_ENC:#{XMLData.encumbrance_text}"')
-    }, 5000)
-    return () => clearInterval(id)
-  }, [lichStatus, status])
-
   const handleHighlightsClose = () => {
     setShowHighlights(false)
     window.dr.settings.getAll().then(s => {

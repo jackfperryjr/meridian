@@ -4,7 +4,6 @@ import {
   vitalsAtom, roomAtom, activeSpellAtom, roundtimeSecondsAtom,
   indicatorsAtom, outputLinesAtom, inventoryLinesAtom,
   expAtom, combatLinesAtom, atmoLinesAtom, convLinesAtom,
-  encumbranceTextAtom,
   type OutputLine
 } from '../../store/game'
 
@@ -65,19 +64,14 @@ export function VitalsPanel() {
   const vitals     = useAtomValue(vitalsAtom)
   const rt         = useAtomValue(roundtimeSecondsAtom)
   const indicators = useAtomValue(indicatorsAtom)
-  const encText    = useAtomValue(encumbranceTextAtom)
   const active     = Object.entries(indicators).filter(([, v]) => v)
 
   return (
     <div>
-      <VitalRow label="HP"  {...vitals.health}  cls="vital-health"  />
-      <VitalRow label="MP"  {...vitals.mana}    cls="vital-mana"    />
-      <VitalRow label="SP"  {...vitals.stamina} cls="vital-stamina" />
-      <VitalRow label="ST"  {...vitals.spirit}  cls="vital-spirit"  />
-      <div className="vital-row">
-        <span className="vital-label">ENC</span>
-        <span className="vital-enc-text">{encText}</span>
-      </div>
+      <VitalRow label="Health"  {...vitals.health}  cls="vital-health"  />
+      <VitalRow label="Mana"  {...vitals.mana}    cls="vital-mana"    />
+      <VitalRow label="Stamina"  {...vitals.stamina} cls="vital-stamina" />
+      <VitalRow label="Spirit"  {...vitals.spirit}  cls="vital-spirit"  />
       {rt > 0 && <div className="roundtime-badge">RT: {rt}s</div>}
       {active.length > 0 && (
         <div className="indicators">

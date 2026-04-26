@@ -37,7 +37,7 @@ export type GameEvent =
   | { type: 'cast_time'; expires: number }
   | { type: 'prompt';    time: number }
 
-export type VitalField = 'health' | 'mana' | 'stamina' | 'spirit' | 'encumbrance'
+export type VitalField = 'health' | 'mana' | 'stamina' | 'spirit'
 
 // ── Module-level stream state ──────────────────────────────────────────────────
 let _stream:     StreamId = 'main'
@@ -119,14 +119,6 @@ export function parseLine(raw: string): GameEvent[] {
         }
       }
     }
-    // Lich ENC sync: silent encumbrance push from our periodic eval query
-    if (text.startsWith('MERIDIAN_ENC:')) {
-      const encText = text.slice('MERIDIAN_ENC:'.length).trim()
-      if (encText && encText !== 'nil') {
-        events.push({ type: 'vitals', field: 'encumbrance', value: 0, text: encText })
-      }
-      return events  // never show this in game output
-    }
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return events }
     if (_inExits)    { _roomExitBuf += ' ' + text; return events }
     // Suppress duplicate plain-text exits (DR sends exits both as XML component and plain text)
@@ -184,12 +176,6 @@ export function parseLine(raw: string): GameEvent[] {
       }
       // else keep buffering
       return events
-    }
-
-    // Encumbrance plain-text line: "  Encumbrance : Heavy Burden"
-    const encMatch = text.match(/^\s*Encumbrance\s*:\s*(.+)/i)
-    if (encMatch) {
-      events.push({ type: 'vitals', field: 'encumbrance', value: 0, text: encMatch[1].trim() })
     }
 
     // Lich script output — route to lich stream so it can be styled/suppressed
@@ -389,7 +375,7 @@ export function parseLine(raw: string): GameEvent[] {
       case 'vitals': {
         // <vitals health="83" mana="95" stamina="100" spirit="100" encumbrance="3"/>
         flush()
-        const validFields: VitalField[] = ['health','mana','stamina','spirit','encumbrance']
+        const validFields: VitalField[] = ['health','mana','stamina','spirit']
         for (const f of validFields) {
           if (attrs[f] !== undefined)
             events.push({ type: 'vitals', field: f, value: parseInt(attrs[f], 10), max: undefined })
@@ -403,7 +389,7 @@ export function parseLine(raw: string): GameEvent[] {
         const val   = parseInt(attrs['value'] ?? '0', 10)
         const max   = attrs['max'] !== undefined ? parseInt(attrs['max'], 10) : undefined
         const text  = attrs['text']
-        const valid: VitalField[] = ['health','mana','stamina','spirit','encumbrance']
+        const valid: VitalField[] = ['health','mana','stamina','spirit']
         if (valid.includes(field)) events.push({ type: 'vitals', field, value: val, max, text })
         break
       }
@@ -418,7 +404,6 @@ export function parseLine(raw: string): GameEvent[] {
           mana:          'mana',    mana2:          'mana',    concentration: 'mana',
           stamina:       'stamina', stamina2:       'stamina', fatigue:       'stamina', fatigue2: 'stamina',
           spirit:        'spirit',  spirit2:        'spirit',
-          encumbar:      'encumbrance',
         }
         const field = VITAL_MAP[id]
         if (field) events.push({ type: 'vitals', field, value, max: 100, text: attrs['text'] })
@@ -451,18 +436,7 @@ export function parseLine(raw: string): GameEvent[] {
       case 'indicator': {
         flush()
         const indId = (attrs['id'] ?? '').replace(/^Icon/, '').toLowerCase()
-        if (indId === 'encumbrance' && attrs['value'] !== undefined) {
-          // <indicator id="IconENCUMBRANCE" value="0-11"/>
-          const ENC_TEXT = ['None', 'Light Burden', 'Burden', 'Heavy Burden',
-            'Very Heavy Burden', 'Overburdened', 'Heavily Overburdened',
-            'Very Heavily Overburdened', 'Extremely Overburdened',
-            'Severely Overburdened', 'Severely Overburdened', 'Severely Overburdened']
-          const v = parseInt(attrs['value'], 10)
-          events.push({ type: 'vitals', field: 'encumbrance', value: v, max: 11,
-            text: ENC_TEXT[v] ?? '' })
-        } else {
-          events.push({ type: 'indicator', id: indId, active: attrs['visible'] === 'y' })
-        }
+        events.push({ type: 'indicator', id: indId, active: attrs['visible'] === 'y' })
         break
       }
 
