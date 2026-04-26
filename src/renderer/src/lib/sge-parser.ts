@@ -123,16 +123,9 @@ export function parseLine(raw: string): GameEvent[] {
   if (!raw.includes('<')) {
     const text = decodeEntities(raw).trim()
     if (!text || text === '>') return events
-    if (_preXmlPhase) {
-      if (/^In the .+:/i.test(text)) _inInitialInventory = true
-      if (_inInitialInventory) {
-        if (/^-{5,}/.test(text)) {
-          _inInitialInventory = false  // separator ends the dump — let it through
-        } else {
-          return events  // swallow container headers, item lines, Empty, Obvious paths
-        }
-      }
-    }
+    // Suppress everything before the first <prompt> — login banner, copyright text,
+    // inventory dump, etc. All valuable content comes via XML after the first prompt.
+    if (_preXmlPhase) return events
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return events }
     if (_inExits)    { _roomExitBuf += ' ' + text; return events }
     // Suppress duplicate plain-text exits (DR sends exits both as XML component and plain text)

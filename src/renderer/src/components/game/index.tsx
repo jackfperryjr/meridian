@@ -120,7 +120,7 @@ export function StatusBar({
 }) {
   return (
     <div className="status-bar">
-      <img src="/icon.svg" className="app-icon" alt="" aria-hidden />
+      <img src="./icon.svg" className="app-icon" alt="" aria-hidden />
       <span className="app-title">Meridian</span>
       <span className={`connection-status status-${status}`}>{status}</span>
 
