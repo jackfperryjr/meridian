@@ -50,8 +50,8 @@ export const vitalsAtom = atom<Record<VitalField, VitalState>>({
 })
 
 // ── Room ──────────────────────────────────────────────────────────────────────
-export interface RoomState { name: string; description: string; exits: string[] }
-export const roomAtom = atom<RoomState>({ name: '', description: '', exits: [] })
+export interface RoomState { name: string; description: string; exits: string[]; objs: string; players: string }
+export const roomAtom = atom<RoomState>({ name: '', description: '', exits: [], objs: '', players: '' })
 
 // ── Inventory ─────────────────────────────────────────────────────────────────
 export const inventoryLinesAtom = atom<string[]>([])
@@ -151,6 +151,14 @@ export const dispatchGameEventAtom = atom(
 
       case 'roomExits':
         set(roomAtom, { ...get(roomAtom), exits: event.exits })
+        break
+
+      case 'roomObjs':
+        set(roomAtom, { ...get(roomAtom), objs: event.objs })
+        break
+
+      case 'roomPlayers':
+        set(roomAtom, { ...get(roomAtom), players: event.players })
         break
 
       case 'expSkill': {

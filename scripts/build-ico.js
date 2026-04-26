@@ -1,12 +1,12 @@
 // Generates build/icon.ico from resources/icon.png.
 // Produces a multi-resolution ICO with bicubic downsampling at each size
-// so the Windows taskbar icon stays crisp at 16, 32, 48, 64, and 256 px.
+// so the Windows taskbar icon stays crisp at 16, 32, 48, 64, 256, and 512 px.
 // Run: node scripts/build-ico.js
 const Jimp = require('jimp')
 const fs   = require('fs')
 const path = require('path')
 
-const SIZES = [256, 64, 48, 32, 16]
+const SIZES = [512, 256, 64, 48, 32, 16]
 const SRC   = path.join(__dirname, '..', 'resources', 'icon.png')
 const OUT   = path.join(__dirname, '..', 'build', 'icon.ico')
 

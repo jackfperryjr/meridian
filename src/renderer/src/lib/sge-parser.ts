@@ -28,6 +28,8 @@ export type GameEvent =
   | { type: 'roomName';  name: string }
   | { type: 'roomDesc';  description: string }
   | { type: 'roomExits'; exits: string[] }
+  | { type: 'roomObjs';  objs: string }
+  | { type: 'roomPlayers'; players: string }
   | { type: 'expSkill';  name: string; rank: number; pct: number; mind: string }
   | { type: 'expMeta';   tdps?: number; favors?: number }
   | { type: 'vitals';    field: VitalField; value: number; max?: number; text?: string }
@@ -43,12 +45,16 @@ export type VitalField = 'health' | 'mana' | 'stamina' | 'spirit'
 let _stream:     StreamId = 'main'
 let _inRoomDesc  = false
 let _inExits     = false
+let _inRoomObjs  = false
+let _inRoomPlayers = false
 let _suppressComp    = false  // swallow room objs/players components
 let _suppressExits   = false  // suppress plain-text exits after XML exits parsed
 let _exitsBuf: string | null = null  // accumulate plain-text "Obvious paths:" across lines
 let _inExpSkill  = ''    // skill name when inside <component id='exp X'>
 let _roomDescBuf = ''
 let _roomExitBuf = ''
+let _roomObjsBuf = ''
+let _roomPlayersBuf = ''
 let _compassDirs: string[] = []
 let _preXmlPhase        = true   // true until the first XML line arrives after connect
 let _inInitialInventory = false  // suppress initial container dump until --- separator
@@ -63,6 +69,8 @@ export function resetParser(): void {
   _inExpSkill         = ''
   _roomDescBuf        = ''
   _roomExitBuf        = ''
+  _roomObjsBuf        = ''
+  _roomPlayersBuf     = ''
   _compassDirs        = []
   _preXmlPhase        = true
   _inInitialInventory = false
@@ -102,6 +110,8 @@ export function parseLine(raw: string): GameEvent[] {
     if (_inInitialInventory || (_preXmlPhase && _stream === 'inv')) { buf = ''; return }
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return }
     if (_inExits)    { _roomExitBuf += ' ' + text; return }
+    if (_inRoomObjs) { _roomObjsBuf += ' ' + text; return }
+    if (_inRoomPlayers) { _roomPlayersBuf += ' ' + text; return }
     // Merge trailing text (e.g. ', "Hello."') onto the previous speech/whisper/thought event
     // so that "You say, "Hello."" appears as one line and is fully captured in conv panel.
     const last = events[events.length - 1]
@@ -123,9 +133,6 @@ export function parseLine(raw: string): GameEvent[] {
   if (!raw.includes('<')) {
     const text = decodeEntities(raw).trim()
     if (!text || text === '>') return events
-    // Suppress everything before the first <prompt> — login banner, copyright text,
-    // inventory dump, etc. All valuable content comes via XML after the first prompt.
-    if (_preXmlPhase) return events
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return events }
     if (_inExits)    { _roomExitBuf += ' ' + text; return events }
     // Suppress duplicate plain-text exits (DR sends exits both as XML component and plain text)
@@ -254,9 +261,13 @@ export function parseLine(raw: string): GameEvent[] {
           _inExits     = true
           _roomExitBuf = ''
           styles = [{ preset: 'roomexits' }]
-        } else if (id.startsWith('room')) {
-          // room objs, room players — swallow, don't emit to game panel
-          _suppressComp = true
+        } else if (id === 'room objs') {
+          _inRoomObjs  = true
+          _roomObjsBuf = ''
+          styles = []
+        } else if (id === 'room players') {
+          _inRoomPlayers  = true
+          _roomPlayersBuf = ''
           styles = []
         } else {
           styles = []
@@ -330,6 +341,24 @@ export function parseLine(raw: string): GameEvent[] {
               styles: [{ preset: 'roomexits' }], stream: 'main',
               links: finalLinks.length > 0 ? finalLinks : undefined
             })
+          }
+          styles = []
+        } else if (_inRoomObjs) {
+          const raw = (_roomObjsBuf + ' ' + buf).replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim()
+          buf = ''
+          _roomObjsBuf = ''
+          _inRoomObjs  = false
+          if (raw) {
+            events.push({ type: 'roomObjs', objs: raw })
+          }
+          styles = []
+        } else if (_inRoomPlayers) {
+          const raw = (_roomPlayersBuf + ' ' + buf).replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim()
+          buf = ''
+          _roomPlayersBuf = ''
+          _inRoomPlayers  = false
+          if (raw) {
+            events.push({ type: 'roomPlayers', players: raw })
           }
           styles = []
         } else {
