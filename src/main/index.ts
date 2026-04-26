@@ -33,9 +33,9 @@ let pendingSelectCharacter: ((id: string)   => Promise<SGELaunchKey>) | null = n
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400, height: 900, minWidth: 800, minHeight: 600,
-    backgroundColor: '#111113',
+    backgroundColor: '#04080f',
     icon: join(app.getAppPath(), 'resources', 'icon.png'),
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false, contextIsolation: true, nodeIntegration: false
@@ -50,6 +50,9 @@ function createWindow(): void {
     if (input.type === 'keyDown' && input.key === 'F12')
       mainWindow?.webContents.toggleDevTools()
   })
+  mainWindow.on('maximize',   () => send('window:maximize-change', true))
+  mainWindow.on('unmaximize', () => send('window:maximize-change', false))
+
   mainWindow.webContents.on('did-finish-load', () => {
     for (const line of lichLogBuffer) {
       send('lich:log', line)
@@ -109,7 +112,14 @@ function setupUpdater(): void {
 }
 
 function setupIpcHandlers(): void {
-  ipcMain.handle('app:version',     () => app.getVersion())
+  ipcMain.handle('app:version',        () => app.getVersion())
+  ipcMain.handle('window:minimize',    () => mainWindow?.minimize())
+  ipcMain.handle('window:maximize',    () => {
+    if (mainWindow?.isMaximized()) mainWindow.unmaximize()
+    else mainWindow?.maximize()
+  })
+  ipcMain.handle('window:close',       () => mainWindow?.close())
+  ipcMain.handle('window:is-maximized', () => mainWindow?.isMaximized() ?? false)
   ipcMain.handle('updater:check',   () => { if (app.isPackaged) autoUpdater.checkForUpdates() })
   ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
   ipcMain.handle('settings:get-all', () => settings.getAll())

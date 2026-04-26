@@ -26,7 +26,19 @@ contextBridge.exposeInMainWorld('dr', {
     onError:  (cb: (m: string) => void) => { const h = (_e: unknown, m: string) => cb(m); ipcRenderer.on('lich:error', h);  return () => ipcRenderer.removeListener('lich:error', h) }
   },
   app: {
-    getVersion: () => ipcRenderer.invoke('app:version')
+    getVersion: () => ipcRenderer.invoke('app:version'),
+    platform:   process.platform,
+  },
+  window: {
+    minimize:         () => ipcRenderer.invoke('window:minimize'),
+    toggleMaximize:   () => ipcRenderer.invoke('window:maximize'),
+    close:            () => ipcRenderer.invoke('window:close'),
+    isMaximized:      () => ipcRenderer.invoke('window:is-maximized') as Promise<boolean>,
+    onMaximizeChange: (cb: (maximized: boolean) => void) => {
+      const h = (_e: unknown, v: boolean) => cb(v)
+      ipcRenderer.on('window:maximize-change', h)
+      return () => ipcRenderer.removeListener('window:maximize-change', h)
+    }
   },
   updater: {
     check:       ()                         => ipcRenderer.invoke('updater:check'),

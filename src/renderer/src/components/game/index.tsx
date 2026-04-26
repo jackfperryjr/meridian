@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAtomValue } from 'jotai'
-import { vitalsAtom, roomAtom, roundtimeSecondsAtom, handsAtom } from '../../store/game'
+import { handsAtom } from '../../store/game'
 export type { ConnectionStatus } from '../../store/game'
 import type { ConnectionStatus } from '../../store/game'
+import { IconCog, IconSparkles, IconChevron, IconWinMinimize, IconWinMaximize, IconWinRestore, IconWinClose } from '../ui/Icons'
 
 // ── CommandInput ──────────────────────────────────────────────────────────────
 export function CommandInput({ onSend, onEcho }: {
@@ -71,6 +72,34 @@ function HandDisplay() {
   )
 }
 
+// ── Window controls (custom min/max/close) ────────────────────────────────────
+export function WindowControls() {
+  const [maximized, setMaximized] = useState(false)
+  const platform = window.dr.app.platform
+
+  useEffect(() => {
+    if (platform === 'darwin') return
+    window.dr.window.isMaximized().then(setMaximized)
+    return window.dr.window.onMaximizeChange(setMaximized)
+  }, [platform])
+
+  if (platform === 'darwin') return null
+
+  return (
+    <div className="window-controls">
+      <button className="wc-btn" title="Minimize" onClick={() => window.dr.window.minimize()}>
+        <IconWinMinimize />
+      </button>
+      <button className="wc-btn" title={maximized ? 'Restore' : 'Maximize'} onClick={() => window.dr.window.toggleMaximize()}>
+        {maximized ? <IconWinRestore /> : <IconWinMaximize />}
+      </button>
+      <button className="wc-btn wc-close" title="Close" onClick={() => window.dr.window.close()}>
+        <IconWinClose />
+      </button>
+    </div>
+  )
+}
+
 // ── StatusBar ─────────────────────────────────────────────────────────────────
 type LichStatus = 'stopped' | 'starting' | 'ready' | 'error'
 
@@ -89,25 +118,20 @@ export function StatusBar({
   onSettings:      () => void
   onHighlights:    () => void
 }) {
-  const lichDot: Record<LichStatus, string>   = { stopped: '○', starting: '◌', ready: '●', error: '✕' }
-  const lichColor: Record<LichStatus, string> = {
-    stopped: 'var(--text-dim)', starting: '#e0c070',
-    ready: 'var(--color-bonus)', error: 'var(--color-warning)'
-  }
-
   return (
     <div className="status-bar">
+      <img src="/icon.svg" className="app-icon" alt="" aria-hidden />
       <span className="app-title">Meridian</span>
       <span className={`connection-status status-${status}`}>{status}</span>
 
       {status === 'connected' && (
-        <span className="lich-status-indicator" style={{ color: lichColor[lichStatus] }}>
-          <span className="lich-dot">{lichDot[lichStatus]}</span>
+        <span className="lich-status-indicator">
+          <span className={`lich-status-dot lich-status-dot-${lichStatus}`} />
           {lichStatus === 'stopped' || lichStatus === 'error'
             ? <button className="btn-connect" onClick={onStartLich}>
                 {lichStatus === 'error' ? 'Retry Lich' : 'Start Lich'}
               </button>
-            : <span style={{ fontSize: 11, marginLeft: 3 }}>
+            : <span className="lich-status-label">
                 {lichStatus === 'starting' ? 'Lich starting…' : 'Lich active'}
               </span>
           }
@@ -116,16 +140,17 @@ export function StatusBar({
             onClick={onToggleLichLog}
             title={showLichLog ? 'Hide log' : `Show log (${lichLog.length} lines)`}
           >
-            {showLichLog ? '▾ log' : '▸ log'}
+            <IconChevron size={11} open={showLichLog} />
+            <span>log</span>
             {lichLog.length > 0 && <span className="lich-log-count">{lichLog.length}</span>}
           </button>
         </span>
       )}
 
-      {/* Show log button even when disconnected */}
       {status !== 'connected' && lichLog.length > 0 && (
         <button className="lich-log-toggle-btn" onClick={onToggleLichLog}>
-          {showLichLog ? '▾ log' : '▸ log'}
+          <IconChevron size={11} open={showLichLog} />
+          <span>log</span>
           <span className="lich-log-count">{lichLog.length}</span>
         </button>
       )}
@@ -138,8 +163,13 @@ export function StatusBar({
           <button className="btn-connect" onClick={onDisconnect}>Disconnect</button>
         </>
       )}
-      <button className="btn-settings" onClick={onHighlights}>✦ Highlights</button>
-      <button className="btn-settings" onClick={onSettings}>⚙ Settings</button>
+      <button className="btn-settings" onClick={onHighlights} title="Highlights">
+        <IconSparkles size={14} />Highlights
+      </button>
+      <button className="btn-settings" onClick={onSettings} title="Settings">
+        <IconCog size={14} />Settings
+      </button>
+      <WindowControls />
     </div>
   )
 }

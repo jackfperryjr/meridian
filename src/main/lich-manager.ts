@@ -1,7 +1,7 @@
 import { ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import { existsSync } from 'fs'
-import { join, dirname } from 'path'
+import { join } from 'path'
 import { createConnection, Socket } from 'net'
 
 export type LichStatus = 'stopped' | 'starting' | 'ready' | 'error'
@@ -59,13 +59,9 @@ export class LichManager extends EventEmitter {
     }
 
     const rubyPath = this.getRubyPath()
-    const lichDir  = dirname(lichPath)
 
-    // Same launch pattern as Frostbite:
-    // ruby lich.rbw --dragonrealms --frostbite -g dr.simutronics.net:11024
     const args = [
       lichPath,
-      `--home=${lichDir}`,
       '--dragonrealms',
       '--frostbite',
       `-g`, `${gameHost}:${gamePort}`,
@@ -106,11 +102,9 @@ export class LichManager extends EventEmitter {
     }
 
     const rubyPath = this.getRubyPath()
-    const lichDir  = dirname(lichPath)
 
     const args = [
       lichPath,
-      `--home=${lichDir}`,
       `--detachable-client=${port}`,
       '--without-frontend',
       '--dragonrealms',
