@@ -1165,19 +1165,31 @@ body[data-platform="darwin"] .status-bar {
   margin-right: auto;
 }
 
-/* ── Update banner ────────────────────────────────────────────────────────── */
-.update-banner {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-  background: var(--accent); color: #000;
-  font-size: 12px; font-family: var(--font-ui);
-  padding: 5px 16px;
-  display: flex; align-items: center; gap: 8px;
+/* ── Update icon (title bar) ──────────────────────────────────────────────── */
+.update-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color .12s, background .12s;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
 }
-.update-banner-btn {
-  background: rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.3);
-  color: inherit; font-size: 11px; font-weight: bold;
-  padding: 2px 10px; border-radius: 3px; cursor: pointer;
+.update-icon-btn:hover                    { background: rgba(255,255,255,0.06); }
+.update-icon-btn.update-downloading       { color: var(--text-muted); cursor: default; }
+.update-icon-btn.update-ready            { color: var(--color-bonus); }
+.update-icon-btn.update-ready:hover      { background: rgba(56,216,56,0.1); color: var(--color-bonus); }
+.update-icon-btn.update-error            { color: var(--color-warning); cursor: default; }
+
+@keyframes updateSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
-.update-banner-btn:hover { background: rgba(0,0,0,0.35); }
-.update-banner-error { background: var(--color-warning); color: #fff; }
+.update-spin { animation: updateSpin 1.4s linear infinite; display: block; }
 .hand-sep   { color: var(--border); flex-shrink: 0; }

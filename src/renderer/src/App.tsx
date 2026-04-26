@@ -15,7 +15,7 @@ import {
 } from './components/layout/PanelContent'
 import { echoCommandAtom, lichMsgAtom } from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
-import { IconArrowDownTray, IconCheckCircle, IconExclamationTriangle } from './components/ui/Icons'
+import { IconArrowPath, IconCheckCircle, IconExclamationTriangle } from './components/ui/Icons'
 import './styles/global.css'
 
 document.body.dataset.platform = window.dr.app.platform
@@ -84,7 +84,7 @@ function LichLogDrawer({ lines, onClose }: { lines: string[]; onClose: () => voi
 }
 
 // ── Game layout ───────────────────────────────────────────────────────────────
-function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: string; onReturnToLogin: () => void; onOpenSettings: () => void }) {
+function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: { charName: string; onReturnToLogin: () => void; onOpenSettings: () => void; updateSlot: React.ReactNode }) {
   const { status, disconnect, send } = useGameConnection()
   // Register send fn for clickable links
   useEffect(() => { setSendFn(send) }, [send])
@@ -202,6 +202,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
         onToggleLichLog={() => setShowLog(v => !v)}
         onSettings={onOpenSettings}
         onHighlights={() => setShowHighlights(true)}
+        updateSlot={updateSlot}
       />
       {showLog && <LichLogDrawer lines={lichLog} onClose={() => setShowLog(false)} />}
       <div className="main-area" ref={mainAreaRef}>
@@ -233,21 +234,27 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings }: { charName: s
   )
 }
 
-// ── Update banner ─────────────────────────────────────────────────────────────
-function UpdateBanner({ version, ready, error }: { version: string; ready: boolean; error: string }) {
+// ── Update icon (title bar) ───────────────────────────────────────────────────
+function UpdateIcon({ version, ready, error }: { version: string; ready: boolean; error: string }) {
+  if (!version && !error) return null
   if (error) return (
-    <div className="update-banner update-banner-error">
-      <IconExclamationTriangle size={14} />
-      Update failed: {error}
-    </div>
+    <button className="update-icon-btn update-error" title={`Update failed: ${error}`} disabled>
+      <IconExclamationTriangle size={15} />
+    </button>
+  )
+  if (ready) return (
+    <button
+      className="update-icon-btn update-ready"
+      title={`v${version} ready — click to restart and install`}
+      onClick={() => window.dr.updater.install()}
+    >
+      <IconCheckCircle size={15} />
+    </button>
   )
   return (
-    <div className="update-banner">
-      {ready
-        ? <><IconCheckCircle size={14} /> v{version} ready — <button className="update-banner-btn" onClick={() => window.dr.updater.install()}>Restart to install</button></>
-        : <><IconArrowDownTray size={14} /> Downloading v{version}…</>
-      }
-    </div>
+    <button className="update-icon-btn update-downloading" title={`Downloading v${version}…`} disabled>
+      <IconArrowPath size={15} className="update-spin" />
+    </button>
   )
 }
 
@@ -268,13 +275,14 @@ function AppInner() {
     return () => unsubs.forEach(fn => fn())
   }, [])
 
+  const updateSlot = <UpdateIcon version={updateVersion} ready={updateReady} error={updateError} />
+
   return (
     <>
-      {!inGame && <div className="app-titlebar-shell"><WindowControls /></div>}
-      {(updateVersion || updateError) && <UpdateBanner version={updateVersion} ready={updateReady} error={updateError} />}
+      {!inGame && <div className="app-titlebar-shell">{updateSlot}<WindowControls /></div>}
       {!inGame
         ? <LoginFlow onEnterGame={name => { setCharName(name); setInGame(true) }} onOpenSettings={() => setShowSettings(true)} />
-        : <GameLayout charName={charName} onReturnToLogin={() => { setCharName(''); setInGame(false) }} onOpenSettings={() => setShowSettings(true)} />
+        : <GameLayout charName={charName} onReturnToLogin={() => { setCharName(''); setInGame(false) }} onOpenSettings={() => setShowSettings(true)} updateSlot={updateSlot} />
       }
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>

@@ -105,7 +105,7 @@ type LichStatus = 'stopped' | 'starting' | 'ready' | 'error'
 
 export function StatusBar({
   status, charName, onDisconnect, onStartLich, lichStatus, lichLog,
-  showLichLog, onToggleLichLog, onSettings, onHighlights
+  showLichLog, onToggleLichLog, onSettings, onHighlights, updateSlot
 }: {
   status:          ConnectionStatus
   charName:        string
@@ -117,6 +117,7 @@ export function StatusBar({
   onToggleLichLog: () => void
   onSettings:      () => void
   onHighlights:    () => void
+  updateSlot?:     React.ReactNode
 }) {
   return (
     <div className="status-bar">
@@ -169,6 +170,7 @@ export function StatusBar({
       <button className="btn-settings" onClick={onSettings} title="Settings">
         <IconCog size={14} />Settings
       </button>
+      {updateSlot}
       <WindowControls />
     </div>
   )
