@@ -23,6 +23,8 @@ export function RoomPanel() {
     <div className="room-panel">
       <div className="room-name">{room.name || '—'}</div>
       {room.description && <div className="room-desc">{room.description}</div>}
+      {room.objs && <div className="room-objs">{room.objs}</div>}
+      {room.players && <div className="room-players">{room.players}</div>}
       {room.exits.length > 0 && (
         <div className="room-exits">
           <span className="room-exits-label">Exits: </span>

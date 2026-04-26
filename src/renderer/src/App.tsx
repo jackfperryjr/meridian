@@ -191,6 +191,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
 
   return (
     <div className="app-shell">
+      {status === 'disconnected' && <div className="app-titlebar-shell">{updateSlot}<WindowControls /></div>}
       <StatusBar
         status={status}
         charName={charName}
@@ -236,24 +237,19 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
 
 // ── Update icon (title bar) ───────────────────────────────────────────────────
 function UpdateIcon({ version, ready, error }: { version: string; ready: boolean; error: string }) {
-  if (!version && !error) return null
+  if (!ready && !error) return null
   if (error) return (
     <button className="update-icon-btn update-error" title={`Update failed: ${error}`} disabled>
       <IconExclamationTriangle size={15} />
     </button>
   )
-  if (ready) return (
+  return (
     <button
       className="update-icon-btn update-ready"
       title={`v${version} ready — click to restart and install`}
       onClick={() => window.dr.updater.install()}
     >
       <IconCheckCircle size={15} />
-    </button>
-  )
-  return (
-    <button className="update-icon-btn update-downloading" title={`Downloading v${version}…`} disabled>
-      <IconArrowPath size={15} className="update-spin" />
     </button>
   )
 }
