@@ -46,13 +46,12 @@
     },
     "nsis": {
       "artifactName": "${productName}-Setup-${version}.${ext}",
-      "installerIcon": "resources/icon.png",
-      "uninstallerIcon": "resources/icon.png",
-      "installerHeaderIcon": "resources/icon.png",
-      "installerSidebar": "resources/icon.png",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "build/icon.ico",
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "allowToChangeInstallationDirectory": true
     },
     "dmg": {
       "artifactName": "${productName}-${version}-${arch}.${ext}"
