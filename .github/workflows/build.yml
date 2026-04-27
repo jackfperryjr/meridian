@@ -1,0 +1,70 @@
+name: PR Build
+
+on:
+  workflow_dispatch: 
+  pull_request:
+    branches: [ main ]
+    # Only trigger if relevant files change to save Action minutes
+    paths:
+      - '**.js'
+      - '**.ts'
+      - 'package.json'
+      - 'build/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            arch_flag: ""
+            artifact_name: dist-windows
+            artifact_pattern: "dist/*.exe"
+          - os: macos-latest
+            arch_flag: "--x64 --arm64"
+            artifact_name: dist-macos
+            artifact_pattern: "dist/*.dmg"
+          - os: ubuntu-latest
+            arch_flag: ""
+            artifact_name: dist-linux
+            artifact_pattern: "dist/*.AppImage"
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Linux build dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y libarchive-tools
+
+      - name: Stamp version
+        run: npm version ${{ needs.tag.outputs.new_tag }} --no-git-tag-version
+
+      - name: Build and package
+        run: npx electron-vite build && npx electron-builder ${{ matrix.arch_flag }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.yml
+            dist/*.blockmap
+          if-no-files-found: warn
