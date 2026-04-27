@@ -52,14 +52,9 @@ jobs:
       - name: Generate Windows icon
         if: matrix.os == 'windows-latest'
         run: node scripts/build-ico.js
-        
+
       - name: Stamp version
         run: npm version ${{ needs.tag.outputs.new_tag }} --no-git-tag-version
-
-      - name: Debug - List Build Directory
-        run: |
-          echo "Checking for icon at root..."
-          ls -R build/
 
       - name: Build and package
         run: npx electron-vite build && npx electron-builder ${{ matrix.arch_flag }} --publish never
