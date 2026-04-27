@@ -59,7 +59,7 @@
       "artifactName": "${productName}-${version}.${ext}"
     },
     "win": {
-      "icon": "./build/icon.ico",
+      "icon": "icon.ico",
       "target": "nsis"
     },
     "mac": {
