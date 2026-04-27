@@ -485,6 +485,8 @@ body[data-platform="darwin"] .status-bar {
 .vital-spirit  { background: linear-gradient(90deg, #200640, var(--spirit-color)); }
 .vital-value { font-size: 14px; color: var(--text-muted); min-width: 30px; text-align: right; font-family: var(--font-ui); }
 .vital-enc-text { font-size: 14px; color: var(--text-muted); flex: 1; text-align: right; font-family: var(--font-ui); }
+.vitals-panel { display: flex; flex-direction: column; gap: 4px; }
+.vitals-status-row { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; align-items: center; }
 
 /* Status indicators */
 .active-spell {

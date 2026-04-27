@@ -15,7 +15,7 @@ import {
 } from './components/layout/PanelContent'
 import { echoCommandAtom, lichMsgAtom } from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
-import { IconArrowPath, IconCheckCircle, IconExclamationTriangle } from './components/ui/Icons'
+import { IconArrowDownTray, IconArrowPath, IconExclamationTriangle } from './components/ui/Icons'
 import './styles/global.css'
 
 document.body.dataset.platform = window.dr.app.platform
@@ -89,6 +89,12 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
   // Register send fn for clickable links
   useEffect(() => { setSendFn(send) }, [send])
   const echoCommand = useSetAtom(echoCommandAtom)
+
+  useEffect(() => {
+    if (status !== 'disconnected') return
+    const timer = window.setTimeout(onReturnToLogin, 1000)
+    return () => window.clearTimeout(timer)
+  }, [status, onReturnToLogin])
 
   const [lichStatus,     setLichStatus]     = useState<'stopped'|'starting'|'ready'|'error'>('stopped')
   const [lichLog,        setLichLog]        = useState<string[]>([])
@@ -226,8 +232,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
         <div className="disconnect-overlay">
           <div className="disconnect-box">
             <div className="disconnect-title">Disconnected</div>
-            <p className="disconnect-msg">Connection to the game server was lost.</p>
-            <button className="login-btn" onClick={onReturnToLogin}>Return to Login</button>
+            <p className="disconnect-msg">Connection lost. Returning to login...</p>
           </div>
         </div>
       )}
@@ -249,7 +254,7 @@ function UpdateIcon({ version, ready, error }: { version: string; ready: boolean
       title={`v${version} ready — click to restart and install`}
       onClick={() => window.dr.updater.install()}
     >
-      <IconCheckCircle size={15} />
+      <IconArrowDownTray size={15} />
     </button>
   )
 }

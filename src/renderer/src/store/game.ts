@@ -50,8 +50,8 @@ export const vitalsAtom = atom<Record<VitalField, VitalState>>({
 })
 
 // ── Room ──────────────────────────────────────────────────────────────────────
-export interface RoomState { name: string; description: string; exits: string[]; objs: string; players: string }
-export const roomAtom = atom<RoomState>({ name: '', description: '', exits: [], objs: '', players: '' })
+export interface RoomState { name: string; description: string; exits: string[]; objs: string; players: string[]; playerNames: string[] }
+export const roomAtom = atom<RoomState>({ name: '', description: '', exits: [], objs: '', players: [], playerNames: [] })
 
 // ── Inventory ─────────────────────────────────────────────────────────────────
 export const inventoryLinesAtom = atom<string[]>([])
@@ -142,11 +142,21 @@ export const dispatchGameEventAtom = atom(
       }
 
       case 'roomName':
-        set(roomAtom, { ...get(roomAtom), name: event.name })
+        set(roomAtom, {
+          ...get(roomAtom),
+          name: event.name,
+        })
         break
 
       case 'roomDesc':
-        set(roomAtom, { ...get(roomAtom), description: event.description })
+        set(roomAtom, {
+          ...get(roomAtom),
+          description: event.description,
+          exits: [],
+          objs: '',
+          players: [],
+          playerNames: [],
+        })
         break
 
       case 'roomExits':
@@ -158,7 +168,24 @@ export const dispatchGameEventAtom = atom(
         break
 
       case 'roomPlayers':
-        set(roomAtom, { ...get(roomAtom), players: event.players })
+        const playerList = event.players.replace(/^(Also here|You also see):\s*/i, '').split(/,\s*/).filter(p => p.trim())
+        set(roomAtom, { ...get(roomAtom), players: playerList, playerNames: playerList })
+        break
+
+      case 'playerArrived':
+        const currentPlayers = get(roomAtom).playerNames
+        if (!currentPlayers.includes(event.player)) {
+          const newPlayers = [...currentPlayers, event.player]
+          const playerText = newPlayers.length > 0 ? `Also here: ${newPlayers.join(', ')}` : ''
+          set(roomAtom, { ...get(roomAtom), players: newPlayers, playerNames: newPlayers })
+        }
+        break
+
+      case 'playerDeparted':
+        const currentPlayers2 = get(roomAtom).playerNames
+        const newPlayers2 = currentPlayers2.filter(p => p !== event.player)
+        const playerText2 = newPlayers2.length > 0 ? `Also here: ${newPlayers2.join(', ')}` : ''
+        set(roomAtom, { ...get(roomAtom), players: newPlayers2, playerNames: newPlayers2 })
         break
 
       case 'expSkill': {

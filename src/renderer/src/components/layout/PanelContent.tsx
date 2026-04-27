@@ -19,12 +19,14 @@ function ScrollPanel({ children, deps }: { children: React.ReactNode; deps: unkn
 
 export function RoomPanel() {
   const room = useAtomValue(roomAtom)
+  const alsoHere = room.playerNames.length > 0 ? `Also here: ${room.playerNames.join(', ')}` : ''
+
   return (
     <div className="room-panel">
-      <div className="room-name">{room.name || '—'}</div>
+      <div className="room-name">Room: {room.name || '—'}</div>
       {room.description && <div className="room-desc">{room.description}</div>}
+      {alsoHere && <div className="room-players">{alsoHere}</div>}
       {room.objs && <div className="room-objs">{room.objs}</div>}
-      {room.players && <div className="room-players">{room.players}</div>}
       {room.exits.length > 0 && (
         <div className="room-exits">
           <span className="room-exits-label">Exits: </span>
@@ -69,15 +71,19 @@ export function VitalsPanel() {
   const active     = Object.entries(indicators).filter(([, v]) => v)
 
   return (
-    <div>
+    <div className="vitals-panel">
       <VitalRow label="Health"  {...vitals.health}  cls="vital-health"  />
       <VitalRow label="Mana"  {...vitals.mana}    cls="vital-mana"    />
       <VitalRow label="Stamina"  {...vitals.stamina} cls="vital-stamina" />
       <VitalRow label="Spirit"  {...vitals.spirit}  cls="vital-spirit"  />
-      {rt > 0 && <div className="roundtime-badge">RT: {rt}s</div>}
-      {active.length > 0 && (
-        <div className="indicators">
-          {active.map(([id]) => <span key={id} className="indicator-badge">{id}</span>)}
+      {(rt > 0 || active.length > 0) && (
+        <div className="vitals-status-row">
+          {rt > 0 && <div className="roundtime-badge">RT: {rt}s</div>}
+          {active.length > 0 && (
+            <div className="indicators">
+              {active.map(([id]) => <span key={id} className="indicator-badge">{id}</span>)}
+            </div>
+          )}
         </div>
       )}
     </div>

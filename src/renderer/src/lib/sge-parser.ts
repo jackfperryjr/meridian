@@ -30,6 +30,8 @@ export type GameEvent =
   | { type: 'roomExits'; exits: string[] }
   | { type: 'roomObjs';  objs: string }
   | { type: 'roomPlayers'; players: string }
+  | { type: 'playerArrived'; player: string }
+  | { type: 'playerDeparted'; player: string }
   | { type: 'expSkill';  name: string; rank: number; pct: number; mind: string }
   | { type: 'expMeta';   tdps?: number; favors?: number }
   | { type: 'vitals';    field: VitalField; value: number; max?: number; text?: string }
@@ -45,13 +47,17 @@ export type VitalField = 'health' | 'mana' | 'stamina' | 'spirit'
 let _stream:     StreamId = 'main'
 let _inRoomDesc  = false
 let _inExits     = false
+let _inRoomName  = false
 let _inRoomObjs  = false
 let _inRoomPlayers = false
+let _inAlsoHere  = false
 let _suppressComp    = false  // swallow room objs/players components
 let _suppressExits   = false  // suppress plain-text exits after XML exits parsed
 let _exitsBuf: string | null = null  // accumulate plain-text "Obvious paths:" across lines
+let _alsoHereBuf = ''
 let _inExpSkill  = ''    // skill name when inside <component id='exp X'>
 let _roomDescBuf = ''
+let _roomNameBuf = ''
 let _roomExitBuf = ''
 let _roomObjsBuf = ''
 let _roomPlayersBuf = ''
@@ -63,11 +69,17 @@ export function resetParser(): void {
   _stream             = 'main'
   _inRoomDesc         = false
   _inExits            = false
+  _inRoomName         = false
+  _inRoomObjs         = false
+  _inRoomPlayers      = false
+  _inAlsoHere         = false
   _suppressComp       = false
   _suppressExits      = false
   _exitsBuf           = null
+  _alsoHereBuf        = ''
   _inExpSkill         = ''
   _roomDescBuf        = ''
+  _roomNameBuf        = ''
   _roomExitBuf        = ''
   _roomObjsBuf        = ''
   _roomPlayersBuf     = ''
@@ -84,6 +96,24 @@ function decodeEntities(s: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+}
+
+function looksLikeNpcList(text: string): boolean {
+  const stripped = text.replace(/^(You also see|Also here:)\s*/i, '').trim()
+  return /^(a|an|the)\s+/i.test(stripped)
+}
+
+function looksLikeRoomName(text: string): boolean {
+  // DragonRealms room names often look like "[Area, Subarea] (roomid)" or "Room Name"
+  const trimmed = text.trim()
+  if (!trimmed || trimmed.length < 3 || trimmed.length > 200) return false
+  if (/^(you|also here|obvious|roundtime|exp|tdp|you are|your|the|an?|some)/i.test(trimmed)) return false
+  if (/^[<>\[\]]/.test(trimmed) && !/^\[.*\]$/.test(trimmed)) return false  // allow complete [brackets] but not incomplete
+  if (/^[\[\(]/.test(trimmed) && /[\]\)]$/.test(trimmed)) return true  // [Area] or (id)
+  if (/^\[.*\]\s*\(.*\)$/.test(trimmed)) return true  // [Area, Subarea] (roomid)
+  // Regular room names: start with capital, contain location words, no XML chars
+  if (/[<>:]/.test(trimmed)) return false  // avoid XML-like chars
+  return /^[A-Z]/.test(trimmed) && /\b(of|the|and|in|on|at|to|from|north|south|east|west|up|down|out|in|forest|glade|path|road|street|square|plaza|shop|inn|tavern|guild|hall|tower|castle|keep|gate|bridge|river|lake|mountain|hill|valley|cave|mine|dungeon|room|chamber|hallway|corridor|door|portal)\b/i.test(trimmed)
 }
 
 const TAG_RE = /<([^>]+)>|([^<]+)/g
@@ -135,6 +165,59 @@ export function parseLine(raw: string): GameEvent[] {
     if (!text || text === '>') return events
     if (_inRoomDesc) { _roomDescBuf += ' ' + text; return events }
     if (_inExits)    { _roomExitBuf += ' ' + text; return events }
+    if (_inRoomName) { _roomNameBuf += ' ' + text; return events }
+    if (_inRoomObjs) { _roomObjsBuf += ' ' + text; return events }
+    if (_inRoomPlayers) { _roomPlayersBuf += ' ' + text; return events }
+
+    // Detect plain-text room names (DISABLED - using XML only)
+    // if (looksLikeRoomName(text) && !_inAlsoHere && !_exitsBuf) {
+    //   events.push({ type: 'roomName', name: text })
+    // }
+
+    // Parse player movement messages to update room player list
+    const arrivalMatch = text.match(/^(\w+) just arrived(?:\.|!)?$/i)
+    if (arrivalMatch) {
+      events.push({ type: 'playerArrived', player: arrivalMatch[1] })
+    }
+    const departureMatch = text.match(/^(\w+) just (?:went|left|departed)(?:\s+\w+)?(?:\.|!)?$/i)
+    if (departureMatch) {
+      events.push({ type: 'playerDeparted', player: departureMatch[1] })
+    }
+
+    if (_inAlsoHere) {
+      _alsoHereBuf += ' ' + text
+      const complete = /[.,]$/.test(text) || !text.trim().endsWith(',') || text.trim() === ''
+      if (complete) {
+        const raw = _alsoHereBuf.replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim()
+        if (raw) {
+          events.push(looksLikeNpcList(raw)
+            ? { type: 'roomObjs', objs: raw }
+            : { type: 'roomPlayers', players: raw })
+        } else {
+          // Empty "Also here:" means no one here
+          events.push({ type: 'roomPlayers', players: '' })
+          events.push({ type: 'roomObjs', objs: '' })
+        }
+        _inAlsoHere = false
+        _alsoHereBuf = ''
+      }
+    } else {
+      const alsoMatch = text.match(/^(You also see|Also here:)\s*(.*)$/i)
+      if (alsoMatch) {
+        const raw = text.replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim()
+        if (alsoMatch[2].trim()) {
+          events.push(looksLikeNpcList(raw)
+            ? { type: 'roomObjs', objs: raw }
+            : { type: 'roomPlayers', players: raw })
+        } else {
+          // Empty "Also here:" line means any previous visitor list is gone.
+          events.push({ type: 'roomPlayers', players: '' })
+          events.push({ type: 'roomObjs', objs: '' })
+          _inAlsoHere = true
+          _alsoHereBuf = raw
+        }
+      }
+    }
     // Suppress duplicate plain-text exits (DR sends exits both as XML component and plain text)
     if (_suppressExits && /^obvious\s+paths?/i.test(text)) {
       _suppressExits = false
@@ -261,6 +344,10 @@ export function parseLine(raw: string): GameEvent[] {
           _inExits     = true
           _roomExitBuf = ''
           styles = [{ preset: 'roomexits' }]
+        } else if (id === 'room name') {
+          _inRoomName  = true
+          _roomNameBuf = ''
+          styles = []
         } else if (id === 'room objs') {
           _inRoomObjs  = true
           _roomObjsBuf = ''
@@ -357,8 +444,16 @@ export function parseLine(raw: string): GameEvent[] {
           buf = ''
           _roomPlayersBuf = ''
           _inRoomPlayers  = false
+          // Always emit roomPlayers event, even if empty (to clear the list)
+          events.push({ type: 'roomPlayers', players: raw })
+          styles = []
+        } else if (_inRoomName) {
+          const raw = (_roomNameBuf + ' ' + buf).replace(/[\r\n]+/g, ' ').replace(/  +/g, ' ').trim()
+          buf = ''
+          _roomNameBuf = ''
+          _inRoomName = false
           if (raw) {
-            events.push({ type: 'roomPlayers', players: raw })
+            events.push({ type: 'roomName', name: raw })
           }
           styles = []
         } else {
@@ -535,14 +630,18 @@ export function parseLine(raw: string): GameEvent[] {
         break
       }
 
-      // ── Ignore ────────────────────────────────────────────────────────────
-      case 'output': case '/output':
-      case 'mode':
-      case 'settingsinfo': case '/settingsinfo':
-      case 'opendialog': case '/opendialog':
-      case 'dialogdata': case '/dialogdata':
-      case 'streamwindow':
-      case 'app': case '/app':
+      // ── Stream window (contains room name in subtitle) ────────────────────
+      case 'streamwindow': {
+        flush()
+        const subtitle = attrs['subtitle'] ?? ''
+        if (subtitle.startsWith(' - ')) {
+          const roomName = subtitle.slice(3)  // Remove " - " prefix
+          if (roomName.trim()) {
+            events.push({ type: 'roomName', name: roomName.trim() })
+          }
+        }
+        break
+      }
       case 'nav': case '/nav':
         flush(); break
 
