@@ -4,6 +4,15 @@ on:
   workflow_dispatch: 
   push:
     branches: [main]
+  pull_request:
+    branches: [ main ]
+    # Only trigger if relevant files change to save Action minutes
+    paths:
+      - '**.js'
+      - '**.ts'
+      - 'package.json'
+      - 'build/**'
+      - '.github/workflows/**'
 
 permissions:
   contents: write
