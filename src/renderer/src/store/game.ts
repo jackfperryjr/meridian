@@ -1,5 +1,5 @@
 import { atom } from 'jotai'
-import type { GameEvent, VitalField, StreamId } from '../lib/sge-parser'
+import type { GameEvent, LinkSpan, TextStyle, VitalField, StreamId } from '../lib/sge-parser'
 
 export type { StreamId }
 
@@ -11,14 +11,15 @@ export const connectionStatusAtom = atom<ConnectionStatus>('disconnected')
 export interface OutputLine {
   id:        number
   text:      string
-  styles:    GameEvent extends { type: 'text' } ? GameEvent['styles'] : never
+  styles:    TextStyle[]
   stream:    StreamId
   timestamp: number
+  links?:    LinkSpan[]
 }
 
 let lineId = 0
-const mkLine = (text: string, styles: OutputLine['styles'], stream: StreamId): OutputLine => ({
-  id: lineId++, text, styles, stream, timestamp: Date.now()
+const mkLine = (text: string, styles: OutputLine['styles'], stream: StreamId, links?: LinkSpan[]): OutputLine => ({
+  id: lineId++, text, styles, stream, timestamp: Date.now(), links
 })
 
 // Skip appending if the last line in the array is identical and was added within
@@ -96,7 +97,7 @@ export const dispatchGameEventAtom = atom(
     switch (event.type) {
 
       case 'text': {
-        const line = mkLine(event.text, event.styles, event.stream)
+        const line = mkLine(event.text, event.styles, event.stream, event.links)
 
         // Route to stream-specific atoms
         switch (event.stream) {

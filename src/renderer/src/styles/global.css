@@ -1105,15 +1105,33 @@ body[data-platform="darwin"] .status-bar {
 
 /* ── Clickable game links ────────────────────────────────────────────────── */
 .game-link {
-  color: var(--color-roomname);
+  color: #8fdcff;
+  background: rgba(86, 163, 255, 0.12);
+  border-radius: 2px;
   cursor: pointer;
-  border-bottom: 1px dotted rgba(240, 232, 88, 0.4);
-  transition: color .1s, border-color .1s;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  transition: color .12s ease, background .12s ease;
+  padding: 0 0.05rem;
+  font-weight: 600;
 }
 .game-link:hover {
-  color: var(--text-bright);
-  border-bottom-color: var(--text-bright);
-  border-bottom-style: solid;
+  color: #ffffff;
+  background: rgba(86, 163, 255, 0.22);
+}
+
+.game-line.shop-line {
+  padding: 0 0.15rem;
+}
+.game-line.shop-header {
+  margin-top: 0.7rem;
+  margin-bottom: 0.2rem;
+}
+.game-line.shop-item {
+  padding-left: 1rem;
+}
+.game-line.shop-footer {
+  margin-bottom: 0.7rem;
 }
 
 /* ── Room panel exits ────────────────────────────────────────────────────── */

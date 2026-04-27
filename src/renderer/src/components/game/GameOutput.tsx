@@ -37,8 +37,20 @@ function fmtTime(ts: number): string {
 
 function GameLine({ line, highlights }: { line: OutputLine; highlights: Highlight[] }) {
   const hl = matchHighlight(line.text, highlights)
+  const isShopLine = Boolean(
+    line.links?.some(l => l.cmd.startsWith('shop')) ||
+    /\b(shop|goods for sale|you see:|shop window)\b/i.test(line.text)
+  )
+  const isShopHeader = /goods for sale|you see:|shop window/i.test(line.text)
+  const isShopItem = Boolean(line.links?.some(l => /^shop\s+#/i.test(l.cmd)))
+  const isShopFooter = /\[type shop/i.test(line.text)
+
   const classList = ['game-line',
-    ...line.styles.map(s => s.preset ? (PRESET_CLASS[s.preset] ?? '') : s.bold ? 'text-bold' : '')
+    ...line.styles.map(s => s.preset ? (PRESET_CLASS[s.preset] ?? '') : s.bold ? 'text-bold' : ''),
+    isShopLine ? 'shop-line' : '',
+    isShopHeader ? 'shop-header' : '',
+    isShopItem ? 'shop-item' : '',
+    isShopFooter ? 'shop-footer' : ''
   ].filter(Boolean)
 
   const style: React.CSSProperties = {}
