@@ -46,8 +46,6 @@
     },
     "nsis": {
       "artifactName": "${productName}-Setup-${version}.${ext}",
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,

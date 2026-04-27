@@ -15,7 +15,7 @@ import {
 } from './components/layout/PanelContent'
 import { echoCommandAtom, lichMsgAtom, tickAtom } from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
-import { IconArrowDownTray, IconArrowPath, IconExclamationTriangle } from './components/ui/Icons'
+import { IconArrowPath, IconCheckCircle, IconExclamationTriangle } from './components/ui/Icons'
 import './styles/global.css'
 
 document.body.dataset.platform = window.dr.app.platform
@@ -248,19 +248,24 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
 
 // ── Update icon (title bar) ───────────────────────────────────────────────────
 function UpdateIcon({ version, ready, error }: { version: string; ready: boolean; error: string }) {
-  if (!ready && !error) return null
+  if (!version && !error) return null
   if (error) return (
     <button className="update-icon-btn update-error" title={`Update failed: ${error}`} disabled>
       <IconExclamationTriangle size={15} />
     </button>
   )
-  return (
+  if (ready) return (
     <button
       className="update-icon-btn update-ready"
       title={`v${version} ready — click to restart and install`}
       onClick={() => window.dr.updater.install()}
     >
-      <IconArrowDownTray size={15} />
+      <IconCheckCircle size={15} />
+    </button>
+  )
+  return (
+    <button className="update-icon-btn update-downloading" title={`Downloading v${version}…`} disabled>
+      <IconArrowPath size={15} className="update-spin" />
     </button>
   )
 }
