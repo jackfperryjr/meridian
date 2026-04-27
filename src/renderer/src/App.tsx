@@ -13,7 +13,7 @@ import {
   ExperiencePanel, ConversationPanel, InventoryPanel,
   CombatPanel, AtmoPanel,
 } from './components/layout/PanelContent'
-import { echoCommandAtom, lichMsgAtom } from './store/game'
+import { echoCommandAtom, lichMsgAtom, tickAtom } from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
 import { IconArrowDownTray, IconArrowPath, IconExclamationTriangle } from './components/ui/Icons'
 import './styles/global.css'
@@ -89,12 +89,18 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
   // Register send fn for clickable links
   useEffect(() => { setSendFn(send) }, [send])
   const echoCommand = useSetAtom(echoCommandAtom)
+  const setTick = useSetAtom(tickAtom)
 
   useEffect(() => {
     if (status !== 'disconnected') return
     const timer = window.setTimeout(onReturnToLogin, 1000)
     return () => window.clearTimeout(timer)
   }, [status, onReturnToLogin])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [setTick])
 
   const [lichStatus,     setLichStatus]     = useState<'stopped'|'starting'|'ready'|'error'>('stopped')
   const [lichLog,        setLichLog]        = useState<string[]>([])

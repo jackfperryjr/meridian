@@ -68,9 +68,11 @@ export const activeSpellAtom = atom<string>('')
 // ── Timers ────────────────────────────────────────────────────────────────────
 export const roundtimeAtom        = atom<number>(0)
 export const castTimeAtom         = atom<number>(0)
-export const roundtimeSecondsAtom = atom(get =>
-  Math.max(0, Math.ceil((get(roundtimeAtom) - Date.now()) / 1000))
-)
+export const tickAtom             = atom<number>(0)  // Updated every second for countdowns
+export const roundtimeSecondsAtom = atom(get => {
+  get(tickAtom)  // Depend on tick to re-evaluate every second
+  return Math.max(0, Math.ceil((get(roundtimeAtom) - Date.now()) / 1000))
+})
 
 // ── Experience ────────────────────────────────────────────────────────────────
 export interface ExpSkill { name: string; rank: number; pct: number; mind: string }
