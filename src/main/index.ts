@@ -108,14 +108,13 @@ function setupUpdater(): void {
     send('updater:error', err.message)
   })
 
-  if (app.isPackaged) {
+  // Poll for updates every hour in packaged mode, every 10 seconds in dev for testing
+  const UPDATE_POLL_INTERVAL = app.isPackaged ? 60 * 60 * 1000 : 10 * 1000
+  autoUpdater.checkForUpdates()
+  setInterval(() => {
+    lichLog('[updater] Checking for updates...')
     autoUpdater.checkForUpdates()
-    const UPDATE_POLL_INTERVAL = 60 * 60 * 1000 // 1 hour
-    setInterval(() => {
-      lichLog('[updater] Checking for updates...')
-      autoUpdater.checkForUpdates()
-    }, UPDATE_POLL_INTERVAL)
-  }
+  }, UPDATE_POLL_INTERVAL)
 }
 
 function setupIpcHandlers(): void {
