@@ -254,13 +254,18 @@ function UpdateIcon({ version, ready, error }: { version: string; ready: boolean
       <IconExclamationTriangle size={15} />
     </button>
   )
-  return (
+  if (ready) return (
     <button
       className="update-icon-btn update-ready"
       title={`v${version} ready — click to restart and install`}
       onClick={() => window.dr.updater.install()}
     >
       <IconArrowDownTray size={15} />
+    </button>
+  )
+  return (
+    <button className="update-icon-btn update-downloading" title={`Downloading v${version}…`} disabled>
+      <IconArrowPath size={15} className="update-spin" />
     </button>
   )
 }
