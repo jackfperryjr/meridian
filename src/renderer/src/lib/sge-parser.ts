@@ -64,6 +64,7 @@ let _roomPlayersBuf = ''
 let _compassDirs: string[] = []
 let _preXmlPhase        = true   // true until the first XML line arrives after connect
 let _inInitialInventory = false  // suppress initial container dump until --- separator
+let _shopDetailBuf = ''  // accumulate SHOP item details across lines
 
 export function resetParser(): void {
   _stream             = 'main'
@@ -86,6 +87,7 @@ export function resetParser(): void {
   _compassDirs        = []
   _preXmlPhase        = true
   _inInitialInventory = false
+  _shopDetailBuf      = ''
 }
 
 function decodeEntities(s: string): string {
@@ -137,6 +139,28 @@ export function parseLine(raw: string): GameEvent[] {
     const s  = forcePreset ? [{ preset: forcePreset }] : [...styles]
     const ls = links.length > 0 ? [...links] : undefined
     links = []
+
+    // Handle SHOP item detail buffering
+    const isShopDetail = /(Short|Tap|Worn|Cost|Look|Read):/i.test(text)
+    if (_shopDetailBuf) {
+      // We're buffering SHOP details
+      if (isShopDetail) {
+        // Continue buffering
+        _shopDetailBuf += '\n' + text
+        return
+      } else {
+        // End of sequence - combine with current text
+        const combinedText = _shopDetailBuf + ' ' + text
+        _shopDetailBuf = ''
+        events.push({ type: 'text', text: combinedText, styles: [], stream: _stream })
+        return
+      }
+    } else if (isShopDetail) {
+      // Start buffering
+      _shopDetailBuf = text
+      return
+    }
+
     // Suppress output when inside special components
     if (_inExpSkill)      return  // exp data — only expSkill event matters
     if (_suppressComp)    return  // room objs/players — swallowed
@@ -171,11 +195,6 @@ export function parseLine(raw: string): GameEvent[] {
     if (_inRoomName) { _roomNameBuf += ' ' + text; return events }
     if (_inRoomObjs) { _roomObjsBuf += ' ' + text; return events }
     if (_inRoomPlayers) { _roomPlayersBuf += ' ' + text; return events }
-
-    // Detect plain-text room names (DISABLED - using XML only)
-    // if (looksLikeRoomName(text) && !_inAlsoHere && !_exitsBuf) {
-    //   events.push({ type: 'roomName', name: text })
-    // }
 
     // Parse player movement messages to update room player list
     const arrivalMatch = text.match(/^(\w+) just arrived(?:\.|!)?$/i)
@@ -660,6 +679,13 @@ export function parseLine(raw: string): GameEvent[] {
   }
 
   flush()
+
+  // Flush any remaining SHOP detail buffer
+  if (_shopDetailBuf) {
+    events.push({ type: 'text', text: _shopDetailBuf, styles: [], stream: _stream })
+    _shopDetailBuf = ''
+  }
+
   return events
 }
 
