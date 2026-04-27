@@ -108,8 +108,8 @@ function setupUpdater(): void {
     send('updater:error', err.message)
   })
 
-  // Poll for updates every hour in packaged mode, every 10 seconds in dev for testing
-  const UPDATE_POLL_INTERVAL = app.isPackaged ? 60 * 60 * 1000 : 10 * 1000
+  // Poll for updates every 30 minutes in packaged mode, every 10 seconds in dev for testing
+  const UPDATE_POLL_INTERVAL = app.isPackaged ? 30 * 60 * 1000 : 10 * 1000
   autoUpdater.checkForUpdates()
   setInterval(() => {
     lichLog('[updater] Checking for updates...')
