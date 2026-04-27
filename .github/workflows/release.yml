@@ -1,4 +1,4 @@
-name: Build and Release
+name: Tag and Release
 
 on:
   workflow_dispatch: 
