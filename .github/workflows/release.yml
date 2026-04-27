@@ -100,6 +100,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install -y libarchive-tools
 
+      - name: Generate Windows icon
+        if: matrix.os == 'windows-latest'
+        run: node scripts/build-ico.js
+
       - name: Stamp version
         run: npm version ${{ needs.tag.outputs.new_tag }} --no-git-tag-version
 

@@ -61,15 +61,3 @@ jobs:
         run: npx electron-vite build && npx electron-builder ${{ matrix.arch_flag }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.yml
-            dist/*.blockmap
-          if-no-files-found: warn
