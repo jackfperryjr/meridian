@@ -20,19 +20,6 @@ RequestExecutionLevel admin
 ; UI: Modern Installer, Minimal Pages
 ; ─────────────────────────────────────────────────────────────────────────────
 
-!ifdef MUI_UNICON
-  !undef MUI_UNICON
-!endif
-!define MUI_UNICON "build\icon.ico"
-!ifdef MUI_HEADERIMAGE
-  !undef MUI_HEADERIMAGE
-!endif
-!define MUI_HEADERIMAGE
-!ifdef MUI_HEADERIMAGE_BITMAP
-  !undef MUI_HEADERIMAGE_BITMAP
-!endif
-!define MUI_HEADERIMAGE_BITMAP "build\icon.ico"
-
 ; Modern dark theme colors (Discord-inspired)
 !define MUI_BGCOLOR "1e1e1e"
 !define MUI_TEXTCOLOR "ffffff"
