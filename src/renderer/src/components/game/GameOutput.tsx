@@ -42,15 +42,34 @@ function GameLine({ line, highlights }: { line: OutputLine; highlights: Highligh
     /\b(shop|goods for sale|you see:|shop window)\b/i.test(line.text)
   )
   const isShopHeader = /goods for sale|you see:|shop window/i.test(line.text)
-  const isShopItem = Boolean(line.links?.some(l => /^shop\s+#/i.test(l.cmd)))
+  const isShopSurface = Boolean(line.links?.some(l => /^shop\s+#\d+$/i.test(l.cmd)))
+  const isShopItem = Boolean(line.links?.some(l => /^shop\s+#\d+\s+on\s+#\d+$/i.test(l.cmd)))
   const isShopFooter = /\[type shop/i.test(line.text)
+  const isShopDetail = /^(Short|Tap|Worn|Cost|Look|Read):/i.test(line.text.trim())
+
+  const isExpLine = Boolean(
+    line.styles.some(s => s.preset === 'whisper') &&
+    /\w+:\s*\d+\s+\d+%\s+\[.*\]/.test(line.text)
+  )
+  const isExpHeader = /Circle:|Showing all skills|SKILL:.*Rank|Total Ranks|Time Development|Overall state|EXP HELP/i.test(line.text)
+  const isExpMeta = /Favors:|TDPs:|Deaths:|Departs:|Rested EXP|Cycle Refreshes/i.test(line.text)
+
+  const isInfoLine = /^(Name|Race|Guild|Gender|Age|Circle|Strength|Reflex|Agility|Charisma|Discipline|Wisdom|Intelligence|Stamina|Concentration|Favors|TDPs|Encumbrance|Luck|Wealth|Debt):/i.test(line.text.trim()) ||
+                    /^You (were born|have \d+ active)/i.test(line.text.trim()) ||
+                    /^\[You can pay/i.test(line.text.trim())
 
   const classList = ['game-line',
     ...line.styles.map(s => s.preset ? (PRESET_CLASS[s.preset] ?? '') : s.bold ? 'text-bold' : ''),
     isShopLine ? 'shop-line' : '',
     isShopHeader ? 'shop-header' : '',
+    isShopSurface ? 'shop-surface' : '',
     isShopItem ? 'shop-item' : '',
-    isShopFooter ? 'shop-footer' : ''
+    isShopDetail ? 'shop-detail' : '',
+    isShopFooter ? 'shop-footer' : '',
+    isExpLine ? 'exp-line' : '',
+    isExpHeader ? 'exp-header' : '',
+    isExpMeta ? 'exp-meta' : '',
+    isInfoLine ? 'info-line' : ''
   ].filter(Boolean)
 
   const style: React.CSSProperties = {}

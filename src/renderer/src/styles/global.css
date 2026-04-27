@@ -1127,11 +1127,48 @@ body[data-platform="darwin"] .status-bar {
   margin-top: 0.7rem;
   margin-bottom: 0.2rem;
 }
+.game-line.shop-surface {
+  padding-left: 0.5rem;
+}
 .game-line.shop-item {
   padding-left: 1rem;
 }
+.game-line.shop-detail {
+  padding-left: 1.5rem;
+  font-size: 15px;
+  line-height: 1.3;
+  margin-bottom: 0.1rem;
+  white-space: pre-line;
+}
 .game-line.shop-footer {
   margin-bottom: 0.7rem;
+}
+
+.game-line.exp-line {
+  padding: 0.1rem 0.25rem;
+  margin-top: 0.3rem;
+  margin-bottom: 0.15rem;
+  background: rgba(192, 208, 255, 0.03);
+  border-radius: 2px;
+}
+.game-line.exp-header {
+  margin-top: 0.5rem;
+  margin-bottom: 0.3rem;
+  font-weight: bold;
+}
+.game-line.exp-meta {
+  margin-top: 0.3rem;
+  padding: 0.2rem 0.15rem;
+  background: rgba(192, 208, 255, 0.05);
+  border-radius: 3px;
+}
+
+.game-line.info-line {
+  padding: 0.1rem 0.25rem;
+  margin-top: 0.3rem;
+  margin-bottom: 0.15rem;
+  background: rgba(192, 208, 255, 0.02);
+  border-radius: 2px;
 }
 
 /* ── Room panel exits ────────────────────────────────────────────────────── */
