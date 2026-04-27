@@ -108,7 +108,14 @@ function setupUpdater(): void {
     send('updater:error', err.message)
   })
 
-  if (app.isPackaged) autoUpdater.checkForUpdates()
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdates()
+    const UPDATE_POLL_INTERVAL = 60 * 60 * 1000 // 1 hour
+    setInterval(() => {
+      lichLog('[updater] Checking for updates...')
+      autoUpdater.checkForUpdates()
+    }, UPDATE_POLL_INTERVAL)
+  }
 }
 
 function setupIpcHandlers(): void {
