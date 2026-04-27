@@ -6,7 +6,7 @@
 
 <p align="center">
   A modern, lightweight client for <a href="https://www.play.net/dr/">DragonRealms</a>
-</p>
+</p> 
 
 <p align="center">
   <img src="https://img.shields.io/github/v/release/jackfperryjr/meridian?style=flat-square&color=4a90d9&label=latest" alt="Latest Release" />
