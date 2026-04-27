@@ -20,7 +20,6 @@ RequestExecutionLevel admin
 ; UI: Modern Installer, Minimal Pages
 ; ─────────────────────────────────────────────────────────────────────────────
 
-!define MUI_ICON "build\icon.ico"
 !define MUI_UNICON "build\icon.ico"
 !define MUI_HEADERIMAGE
 !define MUI_HEADERIMAGE_BITMAP "build\icon.ico"
