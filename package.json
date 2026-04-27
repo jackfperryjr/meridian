@@ -39,6 +39,9 @@
     "directories": {
       "output": "dist"
     },
+    "extraResources": [
+      { "from": "resources/update.html", "to": "update.html" }
+    ],
     "publish": {
       "provider": "github",
       "owner": "jackfperryjr",
