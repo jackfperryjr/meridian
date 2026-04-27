@@ -45,6 +45,13 @@
       "repo": "meridian"
     },
     "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "installerIcon": "resources/icon.png",
+      "uninstallerIcon": "resources/icon.png",
+      "installerHeaderIcon": "resources/icon.png",
+      "installerSidebar": "resources/icon.png",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "dmg": {
