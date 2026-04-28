@@ -30,6 +30,7 @@
   --color-warning:   #ff5820;
   --color-bonus:     #38d838;
   --color-penalty:   #e83838;
+  --color-black:     #000000;
 
   /* Vitals */
   --health-color:    #dd1818;
@@ -500,11 +501,11 @@ body[data-platform="darwin"] .status-bar {
 }
 .indicators { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
 .indicator-badge {
-  font-size: 12px;
+  font-size: 14px;
   padding: 1px 5px;
-  background: rgba(255, 88, 32, 0.1);
-  color: var(--color-warning);
-  border: 1px solid rgba(255, 88, 32, 0.3);
+  background: rgba(236, 255, 32, 0.697);
+  color: var(--color-black);
+  border: 1px solid rgba(236, 255, 32, 0.697);
   text-transform: uppercase;
   letter-spacing: .06em;
   font-family: var(--font-ui);
@@ -1051,7 +1052,8 @@ body[data-platform="darwin"] .status-bar {
 .exp-skill { font-size: 14px; color: var(--text-dim); padding: 2px 4px 2px 0; font-family: var(--font-game); }
 .exp-rank  { font-size: 14px; color: var(--text-main); text-align: right; padding: 2px 4px; min-width: 32px; font-family: var(--font-game); }
 .exp-pct   { font-size: 14px; color: var(--accent);    text-align: right; padding: 2px 4px; min-width: 34px; font-family: var(--font-game); }
-.exp-mind  { font-size: 13px; color: var(--text-dim);  text-align: right; padding: 2px 0 2px 4px; font-family: var(--font-game); }
+.exp-mind     { font-size: 13px; color: var(--text-dim);  text-align: left;  padding: 2px 0 2px 4px; font-family: var(--font-game); min-width: 48px; }
+.exp-col-sep  { width: 8px; border-left: 1px solid var(--border-soft); }
 
 /* ── Conversation / inventory lines ─────────────────────────────────────── */
 .conv-line { font-size: 14px; padding: 1px 0; line-height: 1.35; font-family: var(--font-game); }
@@ -1061,9 +1063,11 @@ body[data-platform="darwin"] .status-bar {
 .roundtime-badge {
   display: inline-block; margin-top: 5px;
   font-size: 14px;
-  color: #c0d0ff; background: rgba(192, 208, 255, 0.07);
+  color: #c0d0ff; 
+  background: rgba(192, 208, 255, 0.07);
   border: 1px solid rgba(192, 208, 255, 0.25);
-  padding: 2px 7px; font-family: var(--font-ui);
+  padding: 1px 5px; 
+  font-family: var(--font-ui);
 }
 
 /* ── Panel empty state ───────────────────────────────────────────────────── */
@@ -1143,6 +1147,53 @@ body[data-platform="darwin"] .status-bar {
 .game-line.shop-footer {
   margin-bottom: 0.7rem;
 }
+
+/* ── Exp skill lines in main output ─────────────────────────────────────── */
+.exp-data-line {
+  display: flex;
+  align-items: baseline;
+  padding: 1px 8px;
+  font-family: var(--font-game);
+  font-size: var(--font-size-game);
+  line-height: var(--line-height-game);
+}
+.exp-data-half {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px 36px 72px;
+  gap: 0 8px;
+  min-width: 0;
+}
+.exp-data-sep {
+  width: 1px;
+  background: var(--border-soft);
+  margin: 0 12px;
+  align-self: stretch;
+}
+.exp-data-name { color: var(--text-dim); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.exp-data-rank { text-align: right; color: var(--text-main); white-space: nowrap; }
+.exp-data-pct  { text-align: right; color: var(--accent);    white-space: nowrap; }
+.exp-data-mind { color: var(--text-dim); white-space: nowrap; }
+
+/* ── Info attribute lines in main output ─────────────────────────────────── */
+.info-data-line {
+  display: flex;
+  align-items: baseline;
+  padding: 1px 8px;
+  font-family: var(--font-game);
+  font-size: var(--font-size-game);
+  line-height: var(--line-height-game);
+}
+.info-data-half {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 10px;
+  min-width: 0;
+}
+.info-data-sep   { width: 1px; background: var(--border-soft); margin: 0 16px; align-self: stretch; }
+.info-data-label { color: var(--text-dim); white-space: nowrap; }
+.info-data-value { color: var(--text-main); white-space: nowrap; }
 
 .game-line.exp-line {
   padding: 0.1rem 0.25rem;
@@ -1249,4 +1300,35 @@ body[data-platform="darwin"] .status-bar {
   to   { transform: rotate(360deg); }
 }
 .update-spin { animation: updateSpin 1.4s linear infinite; display: block; }
+
+/* ── Deaths panel ────────────────────────────────────────────────────────── */
+.death-line {
+  padding: 2px 8px;
+  font-size: var(--font-size-game);
+  font-family: var(--font-game);
+  color: var(--color-warning);
+  border-bottom: 1px solid var(--border-soft);
+  word-break: break-word;
+}
+
+/* ── Panel right-click context menu ─────────────────────────────────────── */
+.panel-ctx-backdrop {
+  position: fixed; inset: 0; z-index: 900;
+}
+.panel-ctx-menu {
+  position: fixed; z-index: 901;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 3px 0;
+  min-width: 110px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.panel-ctx-item {
+  padding: 5px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--font-ui);
+  color: var(--text-main);
+}
+.panel-ctx-item:hover { background: rgba(192,208,255,0.08); }
 .hand-sep   { color: var(--border); flex-shrink: 0; }

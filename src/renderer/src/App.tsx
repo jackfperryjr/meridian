@@ -11,9 +11,12 @@ import type { PanelId }       from './components/layout/PanelSidebar'
 import {
   RoomPanel, VitalsPanel, SpellsPanel,
   ExperiencePanel, ConversationPanel, InventoryPanel,
-  CombatPanel, AtmoPanel,
+  CombatPanel, AtmoPanel, DeathsPanel,
 } from './components/layout/PanelContent'
-import { echoCommandAtom, lichMsgAtom, tickAtom } from './store/game'
+import {
+  echoCommandAtom, lichMsgAtom, tickAtom,
+  combatLinesAtom, atmoLinesAtom, convLinesAtom, deathsAtom, inventoryLinesAtom,
+} from './store/game'
 import { applyTheme, DEFAULT_HIGHLIGHTS } from './lib/themes'
 import { IconArrowDownTray, IconArrowPath, IconExclamationTriangle } from './components/ui/Icons'
 import './styles/global.css'
@@ -30,6 +33,7 @@ function renderPanel(id: PanelId) {
     case 'atmo':         return <AtmoPanel />
     case 'conversation': return <ConversationPanel />
     case 'inventory':    return <InventoryPanel />
+    case 'deaths':       return <DeathsPanel />
     default:             return null
   }
 }
@@ -89,7 +93,24 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
   // Register send fn for clickable links
   useEffect(() => { setSendFn(send) }, [send])
   const echoCommand = useSetAtom(echoCommandAtom)
-  const setTick = useSetAtom(tickAtom)
+  const setTick     = useSetAtom(tickAtom)
+
+  const setCombat    = useSetAtom(combatLinesAtom)
+  const setAtmo      = useSetAtom(atmoLinesAtom)
+  const setConv      = useSetAtom(convLinesAtom)
+  const setDeaths    = useSetAtom(deathsAtom)
+  const setInventory = useSetAtom(inventoryLinesAtom)
+
+  const getClearFn = (id: PanelId): (() => void) | undefined => {
+    switch (id) {
+      case 'combat':       return () => setCombat([])
+      case 'atmo':         return () => setAtmo([])
+      case 'conversation': return () => setConv([])
+      case 'deaths':       return () => setDeaths([])
+      case 'inventory':    return () => setInventory([])
+      default:             return undefined
+    }
+  }
 
   useEffect(() => {
     if (status !== 'disconnected') return
@@ -231,7 +252,7 @@ function GameLayout({ charName, onReturnToLogin, onOpenSettings, updateSlot }: {
           </footer>
         </div>
         <ColResize onDrag={handleColDrag} />
-        <PanelSidebar renderPanel={renderPanel} sidebarWidth={sidebarWidth} />
+        <PanelSidebar renderPanel={renderPanel} getClearFn={getClearFn} sidebarWidth={sidebarWidth} />
       </div>
       {showHighlights && <HighlightsModal onClose={handleHighlightsClose} />}
       {status === 'disconnected' && (

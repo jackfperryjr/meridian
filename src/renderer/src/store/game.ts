@@ -38,6 +38,7 @@ export const expLinesAtom     = atom<OutputLine[]>([])
 export const combatLinesAtom  = atom<OutputLine[]>([])
 export const atmoLinesAtom    = atom<OutputLine[]>([])
 export const convLinesAtom    = atom<OutputLine[]>([])
+export const deathsAtom       = atom<OutputLine[]>([])
 export const lichMsgAtom      = atom<string[]>([])
 
 // ── Vitals ────────────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ export const roundtimeSecondsAtom = atom(get => {
 })
 
 // ── Experience ────────────────────────────────────────────────────────────────
-export interface ExpSkill { name: string; rank: number; pct: number; mind: string }
+export interface ExpSkill { name: string; rank: number; pct: number; mind: string; mindWord?: string }
 export interface ExpState  { skills: ExpSkill[]; tdps: number; favors: number }
 export const expAtom = atom<ExpState>({ skills: [], tdps: 0, favors: 0 })
 
@@ -129,8 +130,14 @@ export const dispatchGameEventAtom = atom(
           case 'speech':
             set(convLinesAtom, appendDedup(get(convLinesAtom), line, 200))
             break
-          default:
+          default: {
             set(outputLinesAtom, appendDedup(get(outputLinesAtom), line, 5000))
+            const DEATH_RE = /\*\s+.+?\s+(was struck down|was slain|was killed|died|perished|succumbed|fell lifeless)|you have died|you are dead/i
+            if (DEATH_RE.test(event.text)) {
+              set(deathsAtom, [...get(deathsAtom).slice(-199), line])
+            }
+            break
+          }
         }
         // Route hand content
         if (event.styles.some(s => s.preset === 'left'))  set(handsAtom, { ...get(handsAtom), left:  event.text.trim() })
@@ -192,7 +199,7 @@ export const dispatchGameEventAtom = atom(
         break
 
       case 'expSkill': {
-        const skill = { name: event.name, rank: event.rank, pct: event.pct, mind: event.mind }
+        const skill = { name: event.name, rank: event.rank, pct: event.pct, mind: event.mind, mindWord: event.mindWord }
         const exp   = get(expAtom)
         const idx   = exp.skills.findIndex(s => s.name === skill.name)
         const skills = idx >= 0

@@ -32,7 +32,7 @@ export type GameEvent =
   | { type: 'roomPlayers'; players: string }
   | { type: 'playerArrived'; player: string }
   | { type: 'playerDeparted'; player: string }
-  | { type: 'expSkill';  name: string; rank: number; pct: number; mind: string }
+  | { type: 'expSkill';  name: string; rank: number; pct: number; mind: string; mindWord?: string }
   | { type: 'expMeta';   tdps?: number; favors?: number }
   | { type: 'vitals';    field: VitalField; value: number; max?: number; text?: string }
   | { type: 'indicator'; id: string; active: boolean }
@@ -388,14 +388,15 @@ export function parseLine(raw: string): GameEvent[] {
           // Parse: "     Aug:  305 66%  [ 1/34]"  (abbr already in buf)
           const raw2 = buf.replace(/[\r\n]+/g, ' ').trim()
           buf = ''
-          const sm = raw2.match(/:?\s*(\d+)\s+(\d+)%\s+\[\s*(\d+\/\d+)\s*\]/)
+          const sm = raw2.match(/:?\s*(\d+)\s+(\d+)%\s+(?:([a-zA-Z][a-zA-Z ]*?)\s+)?[\[\(]\s*(\d+\/\d+)\s*[\]\)]/)
           if (sm) {
             events.push({
-              type: 'expSkill',
-              name: _inExpSkill,
-              rank: parseInt(sm[1]),
-              pct:  parseInt(sm[2]),
-              mind: sm[3],
+              type:     'expSkill',
+              name:     _inExpSkill,
+              rank:     parseInt(sm[1]),
+              pct:      parseInt(sm[2]),
+              mindWord: sm[3]?.trim(),
+              mind:     sm[4],
             })
           } else {
             // TDP / favor line: "TDPs: 3348  Favors: 50"
