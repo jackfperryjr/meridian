@@ -127,7 +127,22 @@ function setupIpcHandlers(): void {
   ipcMain.handle('window:close',       () => mainWindow?.close())
   ipcMain.handle('window:is-maximized', () => mainWindow?.isMaximized() ?? false)
   ipcMain.handle('updater:check',   () => { if (app.isPackaged) autoUpdater.checkForUpdates() })
-  ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
+  ipcMain.handle('updater:install', async () => {
+    const updateWin = new BrowserWindow({
+      width: 340, height: 320,
+      frame: false, resizable: false, center: true,
+      backgroundColor: '#04080f',
+      icon: join(app.getAppPath(), 'resources', 'icon.png'),
+      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true }
+    })
+    const htmlPath = app.isPackaged
+      ? join(process.resourcesPath, 'update.html')
+      : join(__dirname, '../../resources/update.html')
+    await updateWin.loadFile(htmlPath)
+    // Let the splash render before quitAndInstall closes everything
+    await new Promise(r => setTimeout(r, 700))
+    autoUpdater.quitAndInstall(true, true)
+  })
   ipcMain.handle('settings:get-all', () => settings.getAll())
   ipcMain.handle('settings:patch',   (_e, p) => settings.patch(p))
 
