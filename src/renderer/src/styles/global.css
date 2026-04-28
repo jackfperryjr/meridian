@@ -1140,7 +1140,6 @@ body[data-platform="darwin"] .status-bar {
 }
 .game-line.shop-detail {
   padding-left: 1.5rem;
-  font-size: 15px;
   line-height: 1.3;
   margin-bottom: 0.1rem;
   white-space: pre-line;
