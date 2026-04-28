@@ -3,6 +3,47 @@ import { useEffect, useRef, useLayoutEffect } from 'react'
 import { outputLinesAtom, type OutputLine } from '../../store/game'
 import type { Highlight } from '../ui/HighlightsModal'
 
+// ── Exp skill line helpers ────────────────────────────────────────────────────
+interface ParsedExpSkill { name: string; rank: string; pct: string; mind: string }
+interface ParsedInfoPair  { label: string; value: string }
+
+const MIND_COLORS_OUTPUT: Record<string, string> = {
+  'clear':      'var(--text-dim)',
+  'dabbling':   '#6bc5a0',
+  'perusing':   '#5fbcd4',
+  'learning':   '#6badd0',
+  'absorbing':  '#7b8fe8',
+  'mind lock':  '#e06060',
+}
+
+function mindColorOutput(word: string): string {
+  return MIND_COLORS_OUTPUT[word.toLowerCase()] ?? 'var(--text-main)'
+}
+
+const EXP_SKILL_RE  = /(\w[\w\s]*?):\s+(\d+)\s+(\d+)%\s+([a-zA-Z][a-zA-Z ]*?)\s+[\[\(]\d+\/\d+[\]\)]/g
+const INFO_PAIR_RE  = /([A-Za-z][A-Za-z]*?)\s*:\s+(.+?)(?=\s{3,}[A-Za-z]|\s*$)/g
+
+function parseExpSkills(text: string): ParsedExpSkill[] {
+  EXP_SKILL_RE.lastIndex = 0
+  const skills: ParsedExpSkill[] = []
+  let m: RegExpExecArray | null
+  while ((m = EXP_SKILL_RE.exec(text)) !== null) {
+    skills.push({ name: m[1].trim(), rank: m[2], pct: m[3], mind: m[4].trim() })
+  }
+  return skills
+}
+
+function parseInfoPairs(text: string): ParsedInfoPair[] {
+  INFO_PAIR_RE.lastIndex = 0
+  const pairs: ParsedInfoPair[] = []
+  let m: RegExpExecArray | null
+  while ((m = INFO_PAIR_RE.exec(text)) !== null) {
+    pairs.push({ label: m[1].trim(), value: m[2].trim() })
+  }
+  return pairs
+}
+
+// ── Preset class map ──────────────────────────────────────────────────────────
 const PRESET_CLASS: Record<string, string> = {
   echo:           'preset-echo',
   'echo-script':  'preset-echo-script',
@@ -47,14 +88,11 @@ function GameLine({ line, highlights }: { line: OutputLine; highlights: Highligh
   const isShopFooter = /\[type shop/i.test(line.text)
   const isShopDetail = /^(Short|Tap|Worn|Cost|Look|Read):/i.test(line.text.trim())
 
-  const isExpLine = Boolean(
-    line.styles.some(s => s.preset === 'whisper') &&
-    /\w+:\s*\d+\s+\d+%\s+\[.*\]/.test(line.text)
-  )
+  const isExpLine = /\w[\w\s]*?:\s+\d+\s+\d+%\s+[a-zA-Z][a-zA-Z ]*?\s+[\[\(]\d+\/\d+[\]\)]/.test(line.text)
   const isExpHeader = /Circle:|Showing all skills|SKILL:.*Rank|Total Ranks|Time Development|Overall state|EXP HELP/i.test(line.text)
   const isExpMeta = /Favors:|TDPs:|Deaths:|Departs:|Rested EXP|Cycle Refreshes/i.test(line.text)
 
-  const isInfoLine = /^(Name|Race|Guild|Gender|Age|Circle|Strength|Reflex|Agility|Charisma|Discipline|Wisdom|Intelligence|Stamina|Concentration|Favors|TDPs|Encumbrance|Luck|Wealth|Debt):/i.test(line.text.trim()) ||
+  const isInfoLine = /^(Name|Race|Guild|Gender|Age|Circle|Strength|Reflex|Agility|Charisma|Discipline|Wisdom|Intelligence|Stamina|Concentration|Favors|TDPs|Encumbrance|Luck|Wealth|Debt|Max)\s*:/i.test(line.text.trim()) ||
                     /^You (were born|have \d+ active)/i.test(line.text.trim()) ||
                     /^\[You can pay/i.test(line.text.trim())
 
@@ -126,10 +164,68 @@ function GameLine({ line, highlights }: { line: OutputLine; highlights: Highligh
     return <div className={classList.join(' ')} style={style}>{parts}</div>
   }
 
+  // Info attribute lines: parse Label: Value pairs into a 2-column grid
+  if (isInfoLine) {
+    const pairs = parseInfoPairs(line.text)
+    if (pairs.length > 0) {
+      return (
+        <div className="game-line info-data-line">
+          {_showTimestamps && <span className="game-timestamp">{fmtTime(line.timestamp)}</span>}
+          <InfoPairHalf pair={pairs[0]} />
+          {pairs[1] && (
+            <>
+              <div className="info-data-sep" />
+              <InfoPairHalf pair={pairs[1]} />
+            </>
+          )}
+        </div>
+      )
+    }
+  }
+
+  // Exp skill lines: parse and render in a 2-column grid so spaces don't collapse
+  if (isExpLine) {
+    const skills = parseExpSkills(line.text)
+    if (skills.length > 0) {
+      return (
+        <div className="game-line exp-data-line">
+          {_showTimestamps && <span className="game-timestamp">{fmtTime(line.timestamp)}</span>}
+          <ExpSkillHalf s={skills[0]} />
+          {skills[1] && (
+            <>
+              <div className="exp-data-sep" />
+              <ExpSkillHalf s={skills[1]} />
+            </>
+          )}
+        </div>
+      )
+    }
+  }
+
   return (
     <div className={classList.join(' ')} style={style}>
       {_showTimestamps && <span className="game-timestamp">{fmtTime(line.timestamp)}</span>}
       {line.text}
+    </div>
+  )
+}
+
+function ExpSkillHalf({ s }: { s: ParsedExpSkill }) {
+  return (
+    <div className="exp-data-half">
+      <span className="exp-data-name">{s.name}</span>
+      <span className="exp-data-rank">{s.rank}</span>
+      <span className="exp-data-pct">{s.pct}%</span>
+      <span className="exp-data-mind" style={{ color: mindColorOutput(s.mind) }}>{s.mind}</span>
+    </div>
+  )
+}
+
+function InfoPairHalf({ pair }: { pair: ParsedInfoPair }) {
+  return (
+    <div className="info-data-half">
+      <span className="info-data-label">{pair.label}</span>
+      <span className="info-data-value">{pair.value}</span>
     </div>
   )
 }

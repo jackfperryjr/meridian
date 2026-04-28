@@ -2,9 +2,9 @@ import { useAtomValue } from 'jotai'
 import { useEffect, useRef } from 'react'
 import {
   vitalsAtom, roomAtom, activeSpellAtom, roundtimeSecondsAtom,
-  indicatorsAtom, outputLinesAtom, inventoryLinesAtom,
-  expAtom, combatLinesAtom, atmoLinesAtom, convLinesAtom,
-  type OutputLine
+  indicatorsAtom, inventoryLinesAtom,
+  expAtom, combatLinesAtom, atmoLinesAtom, convLinesAtom, deathsAtom,
+  type OutputLine, type ExpSkill,
 } from '../../store/game'
 
 // ── Auto-scroll helper ─────────────────────────────────────────────────────────
@@ -91,11 +91,44 @@ export function VitalsPanel() {
 }
 
 // ── Experience Panel ───────────────────────────────────────────────────────────
+const MIND_COLORS: Record<string, string> = {
+  'clear':      'var(--text-dim)',
+  'dabbling':   '#6bc5a0',
+  'perusing':   '#5fbcd4',
+  'learning':   '#6badd0',
+  'absorbing':  '#7b8fe8',
+  'mind lock':  '#e06060',
+  'mind  lock': '#e06060',
+}
+
+function mindColor(word?: string): string {
+  if (!word) return 'var(--text-dim)'
+  return MIND_COLORS[word.toLowerCase()] ?? 'var(--text-main)'
+}
+
+function ExpSkillCell({ s }: { s: ExpSkill }) {
+  return (
+    <>
+      <td className="exp-skill">{s.name}</td>
+      <td className="exp-rank">{s.rank}</td>
+      <td className="exp-pct">{s.pct}%</td>
+      <td className="exp-mind" style={{ color: mindColor(s.mindWord) }}>
+        {s.mindWord ?? s.mind}
+      </td>
+    </>
+  )
+}
+
 export function ExperiencePanel() {
   const exp = useAtomValue(expAtom)
 
   if (exp.skills.length === 0) {
     return <div className="panel-empty">Type EXP to load experience data</div>
+  }
+
+  const pairs: [ExpSkill, ExpSkill | null][] = []
+  for (let i = 0; i < exp.skills.length; i += 2) {
+    pairs.push([exp.skills[i], exp.skills[i + 1] ?? null])
   }
 
   return (
@@ -108,12 +141,14 @@ export function ExperiencePanel() {
       )}
       <table className="exp-table">
         <tbody>
-          {exp.skills.map(s => (
-            <tr key={s.name} className="exp-row">
-              <td className="exp-skill">{s.name}</td>
-              <td className="exp-rank">{s.rank}</td>
-              <td className="exp-pct">{s.pct}%</td>
-              <td className="exp-mind">{s.mind}</td>
+          {pairs.map(([a, b], i) => (
+            <tr key={i} className="exp-row">
+              <ExpSkillCell s={a} />
+              <td className="exp-col-sep" />
+              {b
+                ? <ExpSkillCell s={b} />
+                : <td colSpan={4} />
+              }
             </tr>
           ))}
         </tbody>
@@ -186,4 +221,17 @@ export function InventoryPanel() {
   return lines.length === 0
     ? <div className="panel-empty">Type INV to see inventory</div>
     : <div>{lines.map((line, i) => <div key={i} className="inv-line">{line}</div>)}</div>
+}
+
+// ── Deaths Panel ───────────────────────────────────────────────────────────────
+export function DeathsPanel() {
+  const lines = useAtomValue(deathsAtom)
+  if (lines.length === 0) return <div className="panel-empty">No deaths recorded</div>
+  return (
+    <ScrollPanel deps={[lines.length]}>
+      {lines.map((l: OutputLine) => (
+        <div key={l.id} className="death-line">{l.text}</div>
+      ))}
+    </ScrollPanel>
+  )
 }

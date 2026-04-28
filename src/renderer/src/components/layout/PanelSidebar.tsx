@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
-export type PanelId = 'room' | 'vitals' | 'experience' | 'spells' | 'conversation' | 'inventory' | 'combat' | 'atmo'
+export type PanelId = 'room' | 'vitals' | 'experience' | 'spells' | 'conversation' | 'inventory' | 'combat' | 'atmo' | 'deaths'
 
 export interface PanelConfig {
   id:      PanelId
@@ -17,9 +17,10 @@ const DEFAULT_PANELS: PanelConfig[] = [
   { id: 'atmo',         label: 'Atmosphere',    visible: false },
   { id: 'conversation', label: 'Conversation',  visible: false },
   { id: 'inventory',    label: 'Inventory',     visible: false },
+  { id: 'deaths',       label: 'Deaths',        visible: false },
 ]
 
-const PANELS_KEY  = 'meridian-panels-v3'
+const PANELS_KEY  = 'meridian-panels-v4'
 const HEIGHTS_KEY = 'meridian-panel-heights-v1'
 
 function loadPanels(): PanelConfig[] {
@@ -48,17 +49,19 @@ function saveHeights(heights: Record<string, number>) {
 
 // ── Single panel ───────────────────────────────────────────────────────────────
 function Panel({
-  config, children, onToggle,
+  config, children, onToggle, onClear,
   height, onResizeBottom, onResizeTop,
 }: {
   config:          PanelConfig
   children:        React.ReactNode
   onToggle:        () => void
+  onClear?:        () => void
   height:          number | null
   onResizeBottom:  (h: number) => void
   onResizeTop?:    (delta: number) => void
 }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed,   setCollapsed]   = useState(false)
+  const [ctxMenu,     setCtxMenu]     = useState<{ x: number; y: number } | null>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
 
   // Use refs so the single shared event handler always sees fresh values
@@ -115,7 +118,11 @@ function Panel({
           title="Drag to resize"
         />
       )}
-      <div className="panel-header" onDoubleClick={() => setCollapsed(c => !c)}>
+      <div
+        className="panel-header"
+        onDoubleClick={() => setCollapsed(c => !c)}
+        onContextMenu={onClear ? (e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }) } : undefined}
+      >
         <span className="panel-title">{config.label}</span>
         <div className="panel-header-actions">
           <button className="panel-collapse-btn" onClick={() => setCollapsed(c => !c)}>
@@ -124,6 +131,14 @@ function Panel({
           <button className="panel-collapse-btn" onClick={onToggle} style={{ opacity: 0.5 }} title="Hide">×</button>
         </div>
       </div>
+      {ctxMenu && (
+        <>
+          <div className="panel-ctx-backdrop" onClick={() => setCtxMenu(null)} />
+          <div className="panel-ctx-menu" style={{ top: ctxMenu.y, left: ctxMenu.x }}>
+            <div className="panel-ctx-item" onClick={() => { onClear?.(); setCtxMenu(null) }}>Clear</div>
+          </div>
+        </>
+      )}
       {!collapsed && (
         <>
           <div
@@ -176,8 +191,9 @@ function PanelManager({
 }
 
 // ── Main sidebar ───────────────────────────────────────────────────────────────
-export function PanelSidebar({ renderPanel, sidebarWidth }: {
+export function PanelSidebar({ renderPanel, getClearFn, sidebarWidth }: {
   renderPanel:   (id: PanelId) => React.ReactNode
+  getClearFn?:   (id: PanelId) => (() => void) | undefined
   sidebarWidth?: number | null
 }) {
   const [panels,      setPanels]      = useState<PanelConfig[]>(loadPanels)
@@ -220,6 +236,7 @@ export function PanelSidebar({ renderPanel, sidebarWidth }: {
               }))
             } : undefined}
             onToggle={() => togglePanel(panel.id)}
+            onClear={getClearFn?.(panel.id)}
           >
             {renderPanel(panel.id)}
           </Panel>
