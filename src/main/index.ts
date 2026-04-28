@@ -135,6 +135,7 @@ function setupIpcHandlers(): void {
       icon: join(app.getAppPath(), 'resources', 'icon.png'),
       webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true }
     })
+    mainWindow?.hide()
     const htmlPath = app.isPackaged
       ? join(process.resourcesPath, 'update.html')
       : join(__dirname, '../../resources/update.html')
